@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bike, Car, MapPin, ArrowRight, Globe, Shield, Zap, Clock, MessageCircle, Weight, CalendarDays } from "lucide-react";
+import { Bike, Car, MapPin, ArrowRight, Globe, Shield, Zap, Clock, MessageCircle, Weight, CalendarDays, Package } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import HeroSection from "@/components/HeroSection";
 import SocialProof from "@/components/SocialProof";
@@ -44,6 +44,24 @@ export default function Index() {
   const [cities, setCities] = useState<City[]>([]);
   const { toast } = useToast();
 
+  // Navbar scroll hide
+  const [navVisible, setNavVisible] = useState(true);
+  const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentY = window.scrollY;
+      if (currentY > lastScrollY.current && currentY > 80) {
+        setNavVisible(false);
+      } else {
+        setNavVisible(true);
+      }
+      lastScrollY.current = currentY;
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   // SC mode state
   const [originCityId, setOriginCityId] = useState("");
   const [destCityId, setDestCityId] = useState("");
@@ -54,6 +72,7 @@ export default function Index() {
   const [originComplement, setOriginComplement] = useState("");
   const [destComplement, setDestComplement] = useState("");
   const [weight, setWeight] = useState("");
+  const [category, setCategory] = useState("");
 
   // National mode state
   const [natOriginCity, setNatOriginCity] = useState("");
@@ -84,6 +103,10 @@ export default function Index() {
 
   const scrollToSimulator = () => {
     simulatorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   useEffect(() => {
@@ -179,7 +202,9 @@ export default function Index() {
       ? `https://www.google.com/maps/dir/?api=1&origin=${originCoords[0]},${originCoords[1]}&destination=${destCoords[0]},${destCoords[1]}`
       : "";
 
-    const urgencyLabels = { express: "Express (1 hora)", normal: "Normal (combinar horário)", urgente: "Urgente (até 40 min)" };
+    const urgencyLabels = { express: "Express (até 1 hora)", normal: "Normal (40-45 min)", urgente: "Urgente (até 30 min)" };
+
+    const categoryLabel = category ? `\nCategoria: ${category}` : "";
 
     const msg = `Olá, gostaria de solicitar um frete:
 
@@ -188,7 +213,7 @@ Origem: ${originText}
 Destino: ${destText}
 Distância: ${result.distance_km.toFixed(1)} km
 Tempo estimado: ${result.estimated_time_min || "—"} minutos
-Valor calculado: R$ ${result.final_value.toFixed(2)}
+Valor calculado: R$ ${result.final_value.toFixed(2)}${categoryLabel}
 ${weight ? `Peso estimado: ${weight}` : ""}
 Entrega: ${deliveryWhen === "hoje" ? "Hoje" : "Agendada"}${deliveryTime ? ` às ${deliveryTime}` : ""}
 Urgência: ${urgencyLabels[urgency]}
@@ -200,13 +225,16 @@ Rota: ${mapsLink}`;
   const currentVehicleLabel = mode === "national" ? "Carro/Camionete" : "Motoboy";
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Navbar */}
-      <header className="sticky top-0 z-50 border-b bg-card/80 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-2.5">
+    <div className="min-h-screen bg-background" id="top">
+      {/* Navbar — auto-hide on scroll down */}
+      <header
+        className="sticky top-0 z-50 border-b bg-card/80 backdrop-blur-md transition-transform duration-300"
+        style={{ transform: navVisible ? "translateY(0)" : "translateY(-100%)" }}
+      >
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-2">
+          <button onClick={scrollToTop} className="flex items-center gap-2.5 cursor-pointer bg-transparent border-0 p-0">
             <img src={logoFrete} alt="Frete Garça" className="h-12 object-contain" />
-          </div>
+          </button>
           <nav className="flex items-center gap-1">
             <Button variant="ghost" size="sm" onClick={scrollToSimulator} className="hidden sm:inline-flex">
               Simular
@@ -218,19 +246,19 @@ Rota: ${mapsLink}`;
 
       <HeroSection onSimulateClick={scrollToSimulator} />
 
-      {/* Social Proof Bar */}
-      <section className="border-b bg-card">
-        <div className="mx-auto max-w-6xl px-4 py-5">
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      {/* Social Proof Bar — single line, subtle */}
+      <section className="border-b bg-card/60">
+        <div className="mx-auto max-w-6xl px-4 py-2.5">
+          <div className="flex items-center justify-around divide-x divide-border">
             {[
-              { value: "2.500+", label: "Entregas realizadas" },
-              { value: "98%", label: "Taxa de satisfação" },
-              { value: "< 5min", label: "Cotação instantânea" },
-              { value: "24/7", label: "Suporte disponível" },
+              { value: "2.500+", label: "Entregas" },
+              { value: "98%", label: "Satisfação" },
+              { value: "< 5min", label: "Cotação" },
+              { value: "24/7", label: "Suporte" },
             ].map((stat) => (
-              <div key={stat.label} className="text-center">
-                <p className="text-2xl font-bold text-primary">{stat.value}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{stat.label}</p>
+              <div key={stat.label} className="flex-1 text-center px-2">
+                <span className="text-sm sm:text-base font-semibold text-primary">{stat.value}</span>
+                <span className="text-[10px] sm:text-[11px] text-muted-foreground ml-1">{stat.label}</span>
               </div>
             ))}
           </div>
@@ -238,8 +266,8 @@ Rota: ${mapsLink}`;
       </section>
 
       {/* Simulator Section */}
-      <section ref={simulatorRef} className="py-8 sm:py-16 bg-muted/50" id="simulator">
-        <div className="mx-auto max-w-4xl px-4">
+      <section ref={simulatorRef} className="py-6 sm:py-12 bg-muted/50" id="simulator">
+        <div className="mx-auto max-w-4xl px-3 sm:px-4">
           <Card className="shadow-xl border-0">
             <CardHeader className="text-center pb-2 px-3 sm:px-6">
               <CardTitle className="text-xl sm:text-2xl">Simule seu frete</CardTitle>
@@ -249,12 +277,12 @@ Rota: ${mapsLink}`;
               <Tabs value={mode} onValueChange={(v) => setMode(v as "sc" | "national")}>
                 <TabsList className="w-full">
                   <TabsTrigger value="sc" className="flex-1 gap-1.5"><Bike className="h-4 w-4" /> Motoboy (SC)</TabsTrigger>
-                  <TabsTrigger value="national" className="flex-1 gap-1.5"><Car className="h-4 w-4" /> Carro / Camionete (Brasil)</TabsTrigger>
+                  <TabsTrigger value="national" className="flex-1 gap-1.5"><Car className="h-4 w-4" /> Carro / Camionete</TabsTrigger>
                 </TabsList>
 
-                {/* SC (MOTO) */}
-                <TabsContent value="sc" className="space-y-5 mt-5">
-                  <div className="rounded-xl border bg-card p-4 space-y-3">
+                {/* SC (MOTOBOY) */}
+                <TabsContent value="sc" className="space-y-4 mt-4">
+                  <div className="rounded-xl border bg-card p-3 sm:p-4 space-y-3">
                     <div className="flex items-center gap-2 text-sm font-medium"><MapPin className="h-4 w-4 text-primary" /> Local de Coleta</div>
                     <div className="space-y-3">
                       <div className="space-y-1.5">
@@ -268,12 +296,12 @@ Rota: ${mapsLink}`;
                         <Label className="text-xs">Rua</Label>
                         <AddressAutocomplete cityName={originCityName} disabled={!originCityId} placeholder="Digite o nome da rua..." onSelect={handleOriginSelect} />
                       </div>
-                      <div className="grid gap-3 sm:grid-cols-3">
+                      <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
                         <div className="space-y-1.5">
                           <Label className="text-xs">Número</Label>
                           <Input value={originNumber} onChange={e => setOriginNumber(e.target.value)} placeholder="Nº" />
                         </div>
-                        <div className="space-y-1.5 sm:col-span-2">
+                        <div className="space-y-1.5 col-span-1 sm:col-span-2">
                           <Label className="text-xs">Complemento (opcional)</Label>
                           <Input value={originComplement} onChange={e => setOriginComplement(e.target.value)} placeholder="Apto, bloco..." />
                         </div>
@@ -281,7 +309,7 @@ Rota: ${mapsLink}`;
                     </div>
                   </div>
 
-                  <div className="rounded-xl border bg-card p-4 space-y-3">
+                  <div className="rounded-xl border bg-card p-3 sm:p-4 space-y-3">
                     <div className="flex items-center gap-2 text-sm font-medium"><MapPin className="h-4 w-4 text-destructive" /> Destino</div>
                     <div className="space-y-3">
                       <div className="space-y-1.5">
@@ -295,12 +323,12 @@ Rota: ${mapsLink}`;
                         <Label className="text-xs">Rua</Label>
                         <AddressAutocomplete cityName={destCityName} disabled={!destCityId} placeholder="Digite o nome da rua..." onSelect={handleDestSelect} />
                       </div>
-                      <div className="grid gap-3 sm:grid-cols-3">
+                      <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
                         <div className="space-y-1.5">
                           <Label className="text-xs">Número</Label>
                           <Input value={destNumber} onChange={e => setDestNumber(e.target.value)} placeholder="Nº" />
                         </div>
-                        <div className="space-y-1.5 sm:col-span-2">
+                        <div className="space-y-1.5 col-span-1 sm:col-span-2">
                           <Label className="text-xs">Complemento (opcional)</Label>
                           <Input value={destComplement} onChange={e => setDestComplement(e.target.value)} placeholder="Apto, bloco..." />
                         </div>
@@ -308,16 +336,44 @@ Rota: ${mapsLink}`;
                     </div>
                   </div>
 
-                  <div className="rounded-xl border bg-card p-4 space-y-3">
-                    <div className="flex items-center gap-2 text-sm font-medium"><Weight className="h-4 w-4 text-primary" /> Peso estimado</div>
-                    <Input value={weight} onChange={e => setWeight(e.target.value)} placeholder="Ex: 5kg - cesta de frutas, 15kg - caixa de frutas" />
-                    <p className="text-xs text-muted-foreground">Informe o peso aproximado para melhor atendimento.</p>
+                  {/* Category & Weight */}
+                  <div className="rounded-xl border bg-card p-3 sm:p-4 space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-medium"><Package className="h-4 w-4 text-primary" /> O que vamos buscar?</div>
+                    <Select value={category} onValueChange={setCategory}>
+                      <SelectTrigger><SelectValue placeholder="Selecione a categoria" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Eletrônicos">Eletrônicos</SelectItem>
+                        <SelectItem value="Documentos">Documentos</SelectItem>
+                        <SelectItem value="Alimentos">Alimentos</SelectItem>
+                        <SelectItem value="Chaves">Chaves</SelectItem>
+                        <SelectItem value="Pacotes">Pacotes</SelectItem>
+                        <SelectItem value="Outros">Outros</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs flex items-center gap-1"><Weight className="h-3.5 w-3.5" /> Peso estimado</Label>
+                      <Select value={weight} onValueChange={setWeight}>
+                        <SelectTrigger><SelectValue placeholder="Selecione o peso" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1 kg">1 kg</SelectItem>
+                          <SelectItem value="2 kg">2 kg</SelectItem>
+                          <SelectItem value="3 kg">3 kg</SelectItem>
+                          <SelectItem value="5 kg">5 kg</SelectItem>
+                          <SelectItem value="10 kg">10 kg</SelectItem>
+                          <SelectItem value="15 kg">15 kg</SelectItem>
+                          <SelectItem value="20 kg">20 kg</SelectItem>
+                          <SelectItem value="25 kg">25 kg</SelectItem>
+                          <SelectItem value="30 kg">30 kg</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-[11px] text-muted-foreground">Exemplo: 5 kg ≈ peso de uma melancia pequena</p>
+                    </div>
                   </div>
                 </TabsContent>
 
-                {/* NATIONAL (CARRO) */}
-                <TabsContent value="national" className="space-y-5 mt-5">
-                  <div className="rounded-xl border bg-card p-4 space-y-3">
+                {/* NATIONAL (CARRO / CAMIONETE) */}
+                <TabsContent value="national" className="space-y-4 mt-4">
+                  <div className="rounded-xl border bg-card p-3 sm:p-4 space-y-3">
                     <div className="flex items-center gap-2 text-sm font-medium"><MapPin className="h-4 w-4 text-primary" /> Origem</div>
                     <div className="space-y-3">
                       <div className="space-y-1.5">
@@ -334,7 +390,7 @@ Rota: ${mapsLink}`;
                       </div>
                     </div>
                   </div>
-                  <div className="rounded-xl border bg-card p-4 space-y-3">
+                  <div className="rounded-xl border bg-card p-3 sm:p-4 space-y-3">
                     <div className="flex items-center gap-2 text-sm font-medium"><MapPin className="h-4 w-4 text-destructive" /> Destino</div>
                     <div className="space-y-3">
                       <div className="space-y-1.5">
@@ -356,7 +412,7 @@ Rota: ${mapsLink}`;
 
               {/* Scheduling & Urgency */}
               <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
-                <div className="rounded-xl border bg-card p-4 space-y-3">
+                <div className="rounded-xl border bg-card p-3 sm:p-4 space-y-3">
                   <div className="flex items-center gap-2 text-sm font-medium">
                     <CalendarDays className="h-4 w-4 text-primary" /> Quando é a entrega?
                   </div>
@@ -381,26 +437,26 @@ Rota: ${mapsLink}`;
                   )}
                 </div>
 
-                <div className="rounded-xl border bg-card p-4 space-y-3">
+                <div className="rounded-xl border bg-card p-3 sm:p-4 space-y-3">
                   <div className="flex items-center gap-2 text-sm font-medium">
                     <Zap className="h-4 w-4 text-primary" /> Urgência
                   </div>
                   <Select value={urgency} onValueChange={(v) => setUrgency(v as "express" | "normal" | "urgente")}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="express">Express</SelectItem>
-                      <SelectItem value="normal">Normal</SelectItem>
-                      <SelectItem value="urgente">Urgente</SelectItem>
+                      <SelectItem value="normal">Normal - 40-45 min + 5 min deslocamento</SelectItem>
+                      <SelectItem value="express">Express - Até 1 hora</SelectItem>
+                      <SelectItem value="urgente">Urgente - Até 30 min</SelectItem>
                     </SelectContent>
                   </Select>
                   {urgency === "express" && (
-                    <p className="text-xs text-primary font-medium">⏱ Tempo estimado: 1 hora</p>
+                    <p className="text-xs text-primary font-medium">⏱ Até 1 hora</p>
                   )}
                   {urgency === "normal" && (
-                    <p className="text-xs text-muted-foreground">Combinar horário com o motorista</p>
+                    <p className="text-xs text-muted-foreground">40-45 min + 5 min deslocamento até coleta</p>
                   )}
                   {urgency === "urgente" && (
-                    <p className="text-xs text-destructive font-medium">⚡ Em até 40 min + 5 min deslocamento até coleta</p>
+                    <p className="text-xs text-destructive font-medium">⚡ Até 30 minutos</p>
                   )}
                 </div>
               </div>
@@ -425,7 +481,7 @@ Rota: ${mapsLink}`;
 
               {/* Result */}
               {result && (
-                <div className="rounded-xl border-2 border-primary/20 bg-accent/50 p-6 space-y-4">
+                <div className="rounded-xl border-2 border-primary/20 bg-accent/50 p-4 sm:p-6 space-y-4">
                   <div>
                     <h3 className="font-bold text-lg">Resultado da Simulação</h3>
                     <p className="text-sm text-muted-foreground">{originCityName} → {destCityName} • {currentVehicleLabel}</p>
