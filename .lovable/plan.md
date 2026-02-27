@@ -1,33 +1,27 @@
 
+Objetivo: corrigir o login Google que autentica no backend, mas mantém o usuário no `/login` no preview.
 
-## Plan: Complemento, peso corrigido e taxa de urgência
+Implementação (curta e direta):
 
-### 1. Adicionar campos "Complemento (opcional)" na UI
-- **SC Motoboy**: Adicionar input após "Número" na Coleta (linha ~332) e Destino (linha ~356)
-- **Nacional**: Adicionar input após "Número" na Origem (linha ~412) e Destino (linha ~432)
-- Adicionar states `natOriginComplement` e `natDestComplement` para modo nacional
+1) Ajustar callback OAuth para preservar rota/query do preview  
+- Arquivo: `src/hooks/useAuth.tsx`  
+- Trocar `redirect_uri: window.location.origin` por URL completa atual (`origin + pathname + search`) para manter o token de preview e retornar corretamente ao app.
 
-### 2. Corrigir opções de peso estimado
-Tornar os exemplos mais realistas e úteis:
-- 1 kg — peso de um pacote de café
-- 2 kg — peso de um notebook
-- 3 kg — peso de um abacaxi
-- 5 kg — peso de uma melancia pequena
-- 10 kg — peso de um micro-ondas
-- 15 kg — peso de um monitor
-- 20 kg — peso de uma mala grande
+2) Tornar validação de admin mais robusta  
+- Arquivo: `src/hooks/useAuth.tsx`  
+- Em `checkAdmin`, usar RPC `has_role(_user_id, _role)` (já existe no banco) em vez de `select` direto em `user_roles`.  
+- Tratar erro explicitamente e manter `isAdmin = false` com log/toast de diagnóstico.
 
-### 3. Taxa de urgência no card de resultado
-- Express: +R$ 8,00
-- Urgente: +R$ 12,00
-- Normal: +R$ 0
-- Mostrar linha "Taxa de urgência" no card de resultado quando > 0
-- Somar ao valor final exibido (client-side, sobre o `final_value` retornado)
-- Incluir no texto do WhatsApp
+3) Fluxo pós-login no `/login`  
+- Arquivo: `src/pages/Login.tsx`  
+- Manter redirecionamento automático para `/admin` quando `user && isAdmin && !loading`.  
+- Se `user && !isAdmin && !loading`, exibir aviso claro de “conta sem permissão administrativa” (evita parecer que login falhou).
 
-### 4. Incluir complemento no texto do WhatsApp
-- Adicionar complemento ao `originText` e `destText` na função `buildWhatsAppUrl`
+4) Validação final do fluxo  
+- Testar no preview com `israeljdeoliveira@gmail.com`: clicar “Entrar com Google” → concluir Google → redirecionar para `/admin`.  
+- Testar também no domínio publicado para confirmar mesmo comportamento.  
+- Validar que usuário sem role admin continua bloqueado (com mensagem explícita).
 
-### Arquivo a editar
-- `src/pages/Index.tsx`
-
+Arquivos a alterar:
+- `src/hooks/useAuth.tsx`
+- `src/pages/Login.tsx`
