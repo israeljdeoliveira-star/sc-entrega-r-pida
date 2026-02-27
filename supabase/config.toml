@@ -1,0 +1,4 @@
+project_id = "kxcrxborxeahweqqechr"
+
+[functions.calculate-freight]
+verify_jwt = false
