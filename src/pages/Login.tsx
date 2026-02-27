@@ -13,8 +13,16 @@ export default function Login() {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!loading && user && isAdmin) {
-      navigate("/admin", { replace: true });
+    if (!loading && user) {
+      if (isAdmin) {
+        navigate("/admin", { replace: true });
+      } else {
+        toast({
+          title: "Acesso negado",
+          description: "Sua conta não possui permissão administrativa.",
+          variant: "destructive",
+        });
+      }
     }
   }, [loading, user, isAdmin, navigate]);
 
