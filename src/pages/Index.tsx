@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import HeroSection from "@/components/HeroSection";
 import SocialProof from "@/components/SocialProof";
 import ServicesSection from "@/components/ServicesSection";
+import ServicePhotosCarousel from "@/components/ServicePhotosCarousel";
 import ThemeToggle from "@/components/ThemeToggle";
 import AddressAutocomplete, { type AddressSelection } from "@/components/AddressAutocomplete";
 import FreightMap from "@/components/FreightMap";
@@ -37,6 +38,16 @@ interface FreightResult {
   platform_value?: number;
   estimated_time_min?: number;
 }
+
+const WEIGHT_OPTIONS = [
+  { value: "1 kg", label: "1 kg — 🍎 Uma maçã grande" },
+  { value: "2 kg", label: "2 kg — 🍊 Duas laranjas" },
+  { value: "3 kg", label: "3 kg — 🍍 Um abacaxi" },
+  { value: "5 kg", label: "5 kg — 🍉 Uma melancia pequena" },
+  { value: "10 kg", label: "10 kg — 🎃 Uma abóbora média" },
+  { value: "15 kg", label: "15 kg — 🍉🍉 Duas melancias" },
+  { value: "20 kg", label: "20 kg — 🎃🎃 Duas abóboras" },
+];
 
 export default function Index() {
   const simulatorRef = useRef<HTMLDivElement>(null);
@@ -107,6 +118,10 @@ export default function Index() {
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const scrollToSection = (id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
   };
 
   useEffect(() => {
@@ -226,6 +241,11 @@ Rota: ${mapsLink}`;
 
   return (
     <div className="min-h-screen bg-background" id="top">
+      {/* Tagline Top Bar — always visible */}
+      <div className="bg-primary text-primary-foreground text-center text-xs sm:text-sm py-1.5 font-medium">
+        📍 Somos de Itapema — fretes via motoboy a partir de <span className="font-bold">R$ 15,00</span>
+      </div>
+
       {/* Navbar — auto-hide on scroll down */}
       <header
         className="sticky top-0 z-50 border-b bg-card/80 backdrop-blur-md transition-transform duration-300"
@@ -236,8 +256,17 @@ Rota: ${mapsLink}`;
             <img src={logoFrete} alt="Frete Garça" className="h-12 object-contain" />
           </button>
           <nav className="flex items-center gap-1">
-            <Button variant="ghost" size="sm" onClick={scrollToSimulator} className="hidden sm:inline-flex">
-              Simular
+            <Button variant="ghost" size="sm" onClick={() => scrollToSection("top")} className="hidden md:inline-flex text-xs">
+              Início
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => scrollToSection("simulator")} className="hidden sm:inline-flex text-xs">
+              Simulador
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => scrollToSection("services")} className="hidden md:inline-flex text-xs">
+              Serviços
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => scrollToSection("reviews")} className="hidden md:inline-flex text-xs">
+              Avaliações
             </Button>
             <ThemeToggle />
           </nav>
@@ -246,7 +275,7 @@ Rota: ${mapsLink}`;
 
       <HeroSection onSimulateClick={scrollToSimulator} />
 
-      {/* Social Proof Bar — single line, subtle */}
+      {/* Social Proof Bar — single line, subtle, no "24/7 Suporte" */}
       <section className="border-b bg-card/60">
         <div className="mx-auto max-w-6xl px-4 py-2.5">
           <div className="flex items-center justify-around divide-x divide-border">
@@ -254,7 +283,6 @@ Rota: ${mapsLink}`;
               { value: "2.500+", label: "Entregas" },
               { value: "98%", label: "Satisfação" },
               { value: "< 5min", label: "Cotação" },
-              { value: "24/7", label: "Suporte" },
             ].map((stat) => (
               <div key={stat.label} className="flex-1 text-center px-2">
                 <span className="text-sm sm:text-base font-semibold text-primary">{stat.value}</span>
@@ -276,8 +304,8 @@ Rota: ${mapsLink}`;
             <CardContent className="space-y-4 sm:space-y-6 pt-4 px-3 sm:px-6">
               <Tabs value={mode} onValueChange={(v) => setMode(v as "sc" | "national")}>
                 <TabsList className="w-full">
-                  <TabsTrigger value="sc" className="flex-1 gap-1.5"><Bike className="h-4 w-4" /> Motoboy (SC)</TabsTrigger>
-                  <TabsTrigger value="national" className="flex-1 gap-1.5"><Car className="h-4 w-4" /> Carro / Camionete</TabsTrigger>
+                  <TabsTrigger value="sc" className="flex-1 gap-1.5"><Bike className="h-4 w-4" /> Simular Motoboy</TabsTrigger>
+                  <TabsTrigger value="national" className="flex-1 gap-1.5"><Car className="h-4 w-4" /> Simular meu Frete</TabsTrigger>
                 </TabsList>
 
                 {/* SC (MOTOBOY) */}
@@ -355,18 +383,11 @@ Rota: ${mapsLink}`;
                       <Select value={weight} onValueChange={setWeight}>
                         <SelectTrigger><SelectValue placeholder="Selecione o peso" /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="1 kg">1 kg</SelectItem>
-                          <SelectItem value="2 kg">2 kg</SelectItem>
-                          <SelectItem value="3 kg">3 kg</SelectItem>
-                          <SelectItem value="5 kg">5 kg</SelectItem>
-                          <SelectItem value="10 kg">10 kg</SelectItem>
-                          <SelectItem value="15 kg">15 kg</SelectItem>
-                          <SelectItem value="20 kg">20 kg</SelectItem>
-                          <SelectItem value="25 kg">25 kg</SelectItem>
-                          <SelectItem value="30 kg">30 kg</SelectItem>
+                          {WEIGHT_OPTIONS.map(w => (
+                            <SelectItem key={w.value} value={w.value}>{w.label}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
-                      <p className="text-[11px] text-muted-foreground">Exemplo: 5 kg ≈ peso de uma melancia pequena</p>
                     </div>
                   </div>
                 </TabsContent>
@@ -523,7 +544,7 @@ Rota: ${mapsLink}`;
       </section>
 
       {/* Features */}
-      <section className="py-16 bg-background">
+      <section className="py-16 bg-background" id="features">
         <div className="mx-auto max-w-6xl px-4">
           <div className="text-center mb-12">
             <h2 className="text-2xl font-bold sm:text-3xl">Por que escolher a Frete Garça?</h2>
@@ -550,18 +571,58 @@ Rota: ${mapsLink}`;
       </section>
 
       {/* Services */}
-      <ServicesSection />
+      <div id="services">
+        <ServicesSection />
+      </div>
+
+      {/* Service Photos Carousel */}
+      <ServicePhotosCarousel />
 
       {/* Social Proof Reviews */}
       <SocialProof />
 
-      {/* Footer */}
-      <footer className="border-t bg-card py-8">
-        <div className="mx-auto max-w-6xl px-4 text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <img src={logoFrete} alt="Frete Garça" className="h-8 object-contain" />
+      {/* Footer SEO */}
+      <footer className="border-t bg-card py-10">
+        <div className="mx-auto max-w-6xl px-4">
+          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <img src={logoFrete} alt="Frete Garça" className="h-10 object-contain mb-3" />
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Entregas rápidas via motoboy e frete com carro na região de Itapema e litoral de Santa Catarina.
+              </p>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-3 text-sm">Serviços</h4>
+              <ul className="space-y-1.5 text-sm text-muted-foreground">
+                <li><a href="#simulator" className="hover:text-primary transition-colors">Simulador de Frete</a></li>
+                <li><a href="#services" className="hover:text-primary transition-colors">Entregas Motoboy</a></li>
+                <li><a href="#simulator" className="hover:text-primary transition-colors">Frete Carro/Camionete</a></li>
+                <li><a href="#features" className="hover:text-primary transition-colors">Entrega Expressa</a></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-3 text-sm">Cidades Atendidas</h4>
+              <ul className="space-y-1.5 text-sm text-muted-foreground">
+                <li>Itapema</li>
+                <li>Porto Belo</li>
+                <li>Bal. Camboriú</li>
+                <li>Tijucas</li>
+                <li>Bombinhas</li>
+                <li>Itajaí</li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-3 text-sm">Links Úteis</h4>
+              <ul className="space-y-1.5 text-sm text-muted-foreground">
+                <li><a href="#reviews" className="hover:text-primary transition-colors">Avaliações Google</a></li>
+                <li><a href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">WhatsApp</a></li>
+                <li><a href="#top" className="hover:text-primary transition-colors">Início</a></li>
+              </ul>
+            </div>
           </div>
-          <p className="text-sm text-muted-foreground">© 2026 Frete Garça. Todos os direitos reservados.</p>
+          <div className="border-t mt-8 pt-6 text-center">
+            <p className="text-xs text-muted-foreground">© 2026 Frete Garça. Todos os direitos reservados. Itapema - SC</p>
+          </div>
         </div>
       </footer>
     </div>

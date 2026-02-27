@@ -1,6 +1,8 @@
 import { Star } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
+const GOOGLE_REVIEWS_URL = "https://g.page/frete-garca/review";
+
 const REVIEWS = [
   {
     name: "Maria S.",
@@ -43,28 +45,41 @@ function StarRating({ rating }: { rating: number }) {
 
 export default function SocialProof() {
   return (
-    <section className="py-16 bg-background">
+    <section className="py-16 bg-background" id="reviews">
       <div className="mx-auto max-w-6xl px-4">
         <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 mb-4">
+          <a
+            href={GOOGLE_REVIEWS_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 mb-4 hover:bg-accent/80 transition-colors cursor-pointer"
+          >
             <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
-            <span className="text-sm font-semibold">4.9 ★ no Google</span>
-          </div>
+            <span className="text-sm font-semibold">4.9 ★ no Google — Clique para avaliar</span>
+          </a>
           <h2 className="text-2xl font-bold sm:text-3xl">O que nossos clientes dizem</h2>
           <p className="mt-2 text-muted-foreground">Avaliações reais de quem já usou nosso serviço</p>
         </div>
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {REVIEWS.map((review, i) => (
-            <Card key={i} className="border shadow-sm hover:shadow-md transition-shadow">
-              <CardContent className="pt-6 space-y-3">
-                <StarRating rating={review.rating} />
-                <p className="text-sm text-muted-foreground leading-relaxed">"{review.text}"</p>
-                <div className="pt-2 border-t">
-                  <p className="text-sm font-semibold">{review.name}</p>
-                  <p className="text-xs text-muted-foreground">{review.city}</p>
-                </div>
-              </CardContent>
-            </Card>
+            <a
+              key={i}
+              href={GOOGLE_REVIEWS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block hover:scale-[1.02] transition-transform"
+            >
+              <Card className="border shadow-sm hover:shadow-md transition-shadow h-full">
+                <CardContent className="pt-6 space-y-3">
+                  <StarRating rating={review.rating} />
+                  <p className="text-sm text-muted-foreground leading-relaxed">"{review.text}"</p>
+                  <div className="pt-2 border-t">
+                    <p className="text-sm font-semibold">{review.name}</p>
+                    <p className="text-xs text-muted-foreground">{review.city}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </a>
           ))}
         </div>
       </div>
