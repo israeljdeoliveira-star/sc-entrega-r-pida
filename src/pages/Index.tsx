@@ -40,14 +40,16 @@ interface FreightResult {
 }
 
 const WEIGHT_OPTIONS = [
-  { value: "1 kg", label: "1 kg — 🍎 Uma maçã grande" },
-  { value: "2 kg", label: "2 kg — 🍊 Duas laranjas" },
-  { value: "3 kg", label: "3 kg — 🍍 Um abacaxi" },
-  { value: "5 kg", label: "5 kg — 🍉 Uma melancia pequena" },
-  { value: "10 kg", label: "10 kg — 🎃 Uma abóbora média" },
-  { value: "15 kg", label: "15 kg — 🍉🍉 Duas melancias" },
-  { value: "20 kg", label: "20 kg — 🎃🎃 Duas abóboras" },
+  { value: "1 kg", label: "1 kg — ☕ pacote de café" },
+  { value: "2 kg", label: "2 kg — 💻 notebook" },
+  { value: "3 kg", label: "3 kg — 🍍 abacaxi" },
+  { value: "5 kg", label: "5 kg — 🍉 melancia pequena" },
+  { value: "10 kg", label: "10 kg — 📦 micro-ondas" },
+  { value: "15 kg", label: "15 kg — 🖥️ monitor" },
+  { value: "20 kg", label: "20 kg — 🧳 mala grande" },
 ];
+
+const URGENCY_FEE: Record<string, number> = { normal: 0, express: 8, urgente: 12 };
 
 export default function Index() {
   const simulatorRef = useRef<HTMLDivElement>(null);
@@ -92,6 +94,8 @@ export default function Index() {
   const [natDestAddress, setNatDestAddress] = useState<AddressSelection | null>(null);
   const [natOriginNumber, setNatOriginNumber] = useState("");
   const [natDestNumber, setNatDestNumber] = useState("");
+  const [natOriginComplement, setNatOriginComplement] = useState("");
+  const [natDestComplement, setNatDestComplement] = useState("");
 
   // Urgency & scheduling
   const [deliveryWhen, setDeliveryWhen] = useState<"hoje" | "agendar">("hoje");
@@ -210,8 +214,13 @@ export default function Index() {
     const oCity = originCityName;
     const dCity = destCityName;
 
-    const originText = `${oAddr?.street || ""}${oNum ? `, Nº ${oNum}` : ""} - ${oAddr?.neighborhood || ""} - ${oCity}`;
-    const destText = `${dAddr?.street || ""}${dNum ? `, Nº ${dNum}` : ""} - ${dAddr?.neighborhood || ""} - ${dCity}`;
+    const oComp = mode === "sc" ? originComplement : natOriginComplement;
+    const dComp = mode === "sc" ? destComplement : natDestComplement;
+    const urgencyFee = URGENCY_FEE[urgency] || 0;
+    const totalValue = result.final_value + urgencyFee;
+
+    const originText = `${oAddr?.street || ""}${oNum ? `, Nº ${oNum}` : ""}${oComp ? `, ${oComp}` : ""} - ${oAddr?.neighborhood || ""} - ${oCity}`;
+    const destText = `${dAddr?.street || ""}${dNum ? `, Nº ${dNum}` : ""}${dComp ? `, ${dComp}` : ""} - ${dAddr?.neighborhood || ""} - ${dCity}`;
 
     const mapsLink = originCoords && destCoords
       ? `https://www.google.com/maps/dir/?api=1&origin=${originCoords[0]},${originCoords[1]}&destination=${destCoords[0]},${destCoords[1]}`
@@ -228,7 +237,8 @@ Origem: ${originText}
 Destino: ${destText}
 Distância: ${result.distance_km.toFixed(1)} km
 Tempo estimado: ${result.estimated_time_min || "—"} minutos
-Valor calculado: R$ ${result.final_value.toFixed(2)}${categoryLabel}
+Valor base: R$ ${result.final_value.toFixed(2)}${urgencyFee > 0 ? `\nTaxa de urgência: +R$ ${urgencyFee.toFixed(2)}` : ""}
+Valor total: R$ ${totalValue.toFixed(2)}${categoryLabel}
 ${weight ? `Peso estimado: ${weight}` : ""}
 Entrega: ${deliveryWhen === "hoje" ? "Hoje" : "Agendada"}${deliveryTime ? ` às ${deliveryTime}` : ""}
 Urgência: ${urgencyLabels[urgency]}
@@ -326,9 +336,15 @@ Rota: ${mapsLink}`;
                       <Label className="text-sm">Rua</Label>
                       <AddressAutocomplete cityName={originCityName} disabled={!originCityId} placeholder="Digite o nome da rua..." onSelect={handleOriginSelect} />
                     </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm">Número</Label>
-                      <Input value={originNumber} onChange={e => setOriginNumber(e.target.value)} placeholder="Nº" />
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-2">
+                        <Label className="text-sm">Número</Label>
+                        <Input value={originNumber} onChange={e => setOriginNumber(e.target.value)} placeholder="Nº" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm">Complemento <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+                        <Input value={originComplement} onChange={e => setOriginComplement(e.target.value)} placeholder="Apt, Sala..." />
+                      </div>
                     </div>
                   </div>
 
@@ -350,9 +366,15 @@ Rota: ${mapsLink}`;
                       <Label className="text-sm">Rua</Label>
                       <AddressAutocomplete cityName={destCityName} disabled={!destCityId} placeholder="Digite o nome da rua..." onSelect={handleDestSelect} />
                     </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm">Número</Label>
-                      <Input value={destNumber} onChange={e => setDestNumber(e.target.value)} placeholder="Nº" />
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-2">
+                        <Label className="text-sm">Número</Label>
+                        <Input value={destNumber} onChange={e => setDestNumber(e.target.value)} placeholder="Nº" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm">Complemento <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+                        <Input value={destComplement} onChange={e => setDestComplement(e.target.value)} placeholder="Apt, Sala..." />
+                      </div>
                     </div>
                   </div>
 
@@ -407,9 +429,15 @@ Rota: ${mapsLink}`;
                       <Label className="text-sm">Rua</Label>
                       <AddressAutocomplete cityName={natOriginCity} state="" disabled={!natOriginCity.trim()} placeholder="Digite o nome da rua..." onSelect={handleNatOriginSelect} />
                     </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm">Número</Label>
-                      <Input value={natOriginNumber} onChange={e => setNatOriginNumber(e.target.value)} placeholder="Nº" />
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-2">
+                        <Label className="text-sm">Número</Label>
+                        <Input value={natOriginNumber} onChange={e => setNatOriginNumber(e.target.value)} placeholder="Nº" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm">Complemento <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+                        <Input value={natOriginComplement} onChange={e => setNatOriginComplement(e.target.value)} placeholder="Apt, Sala..." />
+                      </div>
                     </div>
                   </div>
 
@@ -427,9 +455,15 @@ Rota: ${mapsLink}`;
                       <Label className="text-sm">Rua</Label>
                       <AddressAutocomplete cityName={natDestCity} state="" disabled={!natDestCity.trim()} placeholder="Digite o nome da rua..." onSelect={handleNatDestSelect} />
                     </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm">Número</Label>
-                      <Input value={natDestNumber} onChange={e => setNatDestNumber(e.target.value)} placeholder="Nº" />
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-2">
+                        <Label className="text-sm">Número</Label>
+                        <Input value={natDestNumber} onChange={e => setNatDestNumber(e.target.value)} placeholder="Nº" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm">Complemento <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+                        <Input value={natDestComplement} onChange={e => setNatDestComplement(e.target.value)} placeholder="Apt, Sala..." />
+                      </div>
                     </div>
                   </div>
                 </TabsContent>
@@ -540,10 +574,13 @@ Rota: ${mapsLink}`;
                     {(result.pedagios ?? 0) > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Pedágios</span><span>R$ {(result.pedagios ?? 0).toFixed(2)}</span></div>}
                     {(result.taxa_retorno ?? 0) > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Taxa de retorno</span><span>R$ {(result.taxa_retorno ?? 0).toFixed(2)}</span></div>}
                     {(result.multiplier_applied ?? 1) > 1 && <div className="flex justify-between"><span className="text-muted-foreground">Multiplicador</span><span className="font-medium text-primary">{(result.multiplier_applied ?? 1).toFixed(2)}x</span></div>}
+                    {URGENCY_FEE[urgency] > 0 && (
+                      <div className="flex justify-between"><span className="text-muted-foreground">Taxa de urgência ({urgency === "express" ? "Express" : "Urgente"})</span><span className="font-medium">+ R$ {URGENCY_FEE[urgency].toFixed(2)}</span></div>
+                    )}
                   </div>
                   <div className="border-t pt-4 flex justify-between items-center">
                     <span className="text-lg font-bold">Valor do Frete</span>
-                    <span className="text-3xl font-extrabold text-primary">R$ {result.final_value.toFixed(2)}</span>
+                    <span className="text-3xl font-extrabold text-primary">R$ {(result.final_value + URGENCY_FEE[urgency]).toFixed(2)}</span>
                   </div>
 
                   <Button
