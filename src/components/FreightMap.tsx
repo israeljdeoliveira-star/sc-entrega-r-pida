@@ -42,8 +42,9 @@ export default function FreightMap({ originCoords, destCoords, onRouteCalculated
       attributionControl: false,
     }).setView([-27.1, -48.6], 10);
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 18,
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+      maxZoom: 19,
+      attribution: '',
     }).addTo(map);
 
     L.control.zoom({ position: "bottomright" }).addTo(map);
@@ -89,9 +90,9 @@ export default function FreightMap({ originCoords, destCoords, onRouteCalculated
               (c: [number, number]) => [c[1], c[0]] as [number, number]
             );
             routeLineRef.current = L.polyline(coords, {
-              color: "hsl(217, 91%, 50%)",
+              color: "hsl(210, 80%, 70%)",
               weight: 4,
-              opacity: 0.8,
+              opacity: 0.85,
             }).addTo(map);
             map.fitBounds(routeLineRef.current.getBounds(), { padding: [40, 40] });
 

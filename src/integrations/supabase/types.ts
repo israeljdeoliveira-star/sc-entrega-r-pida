@@ -373,6 +373,42 @@ export type Database = {
         }
         Relationships: []
       }
+      site_settings: {
+        Row: {
+          custom_tracking_code: string | null
+          facebook_pixel_id: string | null
+          ga4_id: string | null
+          google_verification: string | null
+          gtm_id: string | null
+          id: string
+          show_whatsapp_button: boolean
+          updated_at: string | null
+          whatsapp_number: string
+        }
+        Insert: {
+          custom_tracking_code?: string | null
+          facebook_pixel_id?: string | null
+          ga4_id?: string | null
+          google_verification?: string | null
+          gtm_id?: string | null
+          id?: string
+          show_whatsapp_button?: boolean
+          updated_at?: string | null
+          whatsapp_number?: string
+        }
+        Update: {
+          custom_tracking_code?: string | null
+          facebook_pixel_id?: string | null
+          ga4_id?: string | null
+          google_verification?: string | null
+          gtm_id?: string | null
+          id?: string
+          show_whatsapp_button?: boolean
+          updated_at?: string | null
+          whatsapp_number?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string

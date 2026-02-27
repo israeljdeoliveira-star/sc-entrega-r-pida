@@ -1,7 +1,7 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Building2, MapPin, Settings, LogOut, Truck, LayoutDashboard, Users, CarFront, Package, Zap, FileText } from "lucide-react";
+import { Building2, MapPin, Settings, LogOut, Truck, LayoutDashboard, Users, CarFront, Package, Zap, FileText, Code } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -14,6 +14,7 @@ const navItems = [
   { to: "/admin/pricing-log", label: "Log de Alterações", icon: FileText },
   { to: "/admin/drivers", label: "Motoristas", icon: CarFront },
   { to: "/admin/clients", label: "Clientes", icon: Users },
+  { to: "/admin/external-codes", label: "Códigos Externos", icon: Code },
 ];
 
 export default function AdminLayout() {
