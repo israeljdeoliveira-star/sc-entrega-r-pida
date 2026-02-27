@@ -13,6 +13,28 @@ function jsonResponse(data: unknown, status = 200) {
   });
 }
 
+// --- Input Validation Helpers ---
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isValidUUID(v: unknown): v is string {
+  return typeof v === "string" && UUID_RE.test(v);
+}
+
+function safeNumber(v: unknown): number | null {
+  if (v === null || v === undefined) return null;
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  return n;
+}
+
+function validateMode(mode: unknown): mode is "sc" | "national" {
+  return mode === "sc" || mode === "national";
+}
+
+function validateVehicleType(v: unknown): v is "moto" | "car" {
+  return v === "moto" || v === "car";
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -20,8 +42,18 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
+
+    // --- Validate mode ---
     const mode = body.mode || "sc";
-    const clientDistance = body.distance_km ? Number(body.distance_km) : null;
+    if (!validateMode(mode)) {
+      return jsonResponse({ error: "Modo inválido. Use 'sc' ou 'national'." }, 400);
+    }
+
+    // --- Validate distance_km ---
+    const clientDistance = body.distance_km != null ? safeNumber(body.distance_km) : null;
+    if (body.distance_km != null && (clientDistance === null || clientDistance <= 0 || clientDistance > 10000)) {
+      return jsonResponse({ error: "Distância inválida. Deve ser um número positivo até 10.000 km." }, 400);
+    }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -37,10 +69,8 @@ Deno.serve(async (req) => {
 
     if (mode === "national") {
       // --- NATIONAL MODE (CARRO) ---
-      let distanceKm = clientDistance;
-
-      if (!distanceKm) {
-        return jsonResponse({ error: "Distância não informada." });
+      if (!clientDistance) {
+        return jsonResponse({ error: "Distância não informada." }, 400);
       }
 
       const fixedFee = Number(settings.fixed_fee || 0);
@@ -53,7 +83,7 @@ Deno.serve(async (req) => {
       const minValue = Number(settings.national_min_value);
       const comissaoCarro = Number(settings.comissao_carro || 15);
 
-      const baseValue = valorBaseNacional + (distanceKm * pricePerKm);
+      const baseValue = valorBaseNacional + (clientDistance * pricePerKm);
       const totalMultiplier = multiplicadorCarro * dynamicMultiplier;
       const totalBeforeMin = (baseValue + pedagios + taxaRetorno + fixedFee) * totalMultiplier;
       const finalValue = Math.max(totalBeforeMin, margemMinimaCarro, minValue);
@@ -62,7 +92,7 @@ Deno.serve(async (req) => {
       const driverValue = finalValue - platformValue;
 
       return jsonResponse({
-        distance_km: distanceKm,
+        distance_km: clientDistance,
         base_value: baseValue,
         origin_fee: 0,
         destination_fee: 0,
@@ -78,19 +108,37 @@ Deno.serve(async (req) => {
       });
     }
 
-    // --- SC MODE (MOTO) ---
-    const { origin_city_id, destination_city_id, vehicle_type } = body;
+    // --- SC MODE (MOTO/CARRO) ---
+    const { origin_city_id, destination_city_id, vehicle_type, origin_neighborhood_id, destination_neighborhood_id } = body;
+
+    // Validate vehicle_type
+    if (vehicle_type !== undefined && !validateVehicleType(vehicle_type)) {
+      return jsonResponse({ error: "Tipo de veículo inválido. Use 'moto' ou 'car'." }, 400);
+    }
+
+    // Validate UUIDs
+    if (!isValidUUID(origin_city_id)) {
+      return jsonResponse({ error: "ID da cidade de origem inválido." }, 400);
+    }
+    if (!isValidUUID(destination_city_id)) {
+      return jsonResponse({ error: "ID da cidade de destino inválido." }, 400);
+    }
+    if (origin_neighborhood_id !== undefined && origin_neighborhood_id !== null && !isValidUUID(origin_neighborhood_id)) {
+      return jsonResponse({ error: "ID do bairro de origem inválido." }, 400);
+    }
+    if (destination_neighborhood_id !== undefined && destination_neighborhood_id !== null && !isValidUUID(destination_neighborhood_id)) {
+      return jsonResponse({ error: "ID do bairro de destino inválido." }, 400);
+    }
 
     const { data: originCity } = await supabase.from("cities").select("*").eq("id", origin_city_id).single();
     const { data: destCity } = await supabase.from("cities").select("*").eq("id", destination_city_id).single();
 
-    if (!originCity || !destCity) return jsonResponse({ error: "Cidade não encontrada ou não cadastrada." });
-    if (!originCity.is_active || !destCity.is_active) return jsonResponse({ error: "Uma das cidades selecionadas não está ativa." });
+    if (!originCity || !destCity) return jsonResponse({ error: "Cidade não encontrada ou não cadastrada." }, 404);
+    if (!originCity.is_active || !destCity.is_active) return jsonResponse({ error: "Uma das cidades selecionadas não está ativa." }, 400);
 
     let originFee = 0;
     let destFee = 0;
 
-    const { origin_neighborhood_id, destination_neighborhood_id } = body;
     if (origin_neighborhood_id) {
       const { data: n } = await supabase.from("neighborhoods").select("additional_fee").eq("id", origin_neighborhood_id).single();
       if (n) originFee = Number(n.additional_fee);

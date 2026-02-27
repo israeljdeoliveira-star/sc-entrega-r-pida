@@ -369,6 +369,7 @@ export type Database = {
           distance_km: number | null
           final_value: number | null
           id: string
+          ip_hash: string | null
           mode: string
           origin_city: string | null
           origin_neighborhood: string | null
@@ -381,6 +382,7 @@ export type Database = {
           distance_km?: number | null
           final_value?: number | null
           id?: string
+          ip_hash?: string | null
           mode?: string
           origin_city?: string | null
           origin_neighborhood?: string | null
@@ -393,6 +395,7 @@ export type Database = {
           distance_km?: number | null
           final_value?: number | null
           id?: string
+          ip_hash?: string | null
           mode?: string
           origin_city?: string | null
           origin_neighborhood?: string | null
