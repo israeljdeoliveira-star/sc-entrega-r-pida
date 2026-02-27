@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { trackEvent, logSimulation } from "@/lib/analytics";
@@ -9,14 +9,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Truck, Bike, Car, MapPin, ArrowRight, Settings, Globe, Shield, Zap, Clock, CheckCircle2 } from "lucide-react";
+import { Bike, Car, MapPin, ArrowRight, Settings, Globe, Shield, Zap, Clock, MessageCircle, Weight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import HeroSection from "@/components/HeroSection";
+import SocialProof from "@/components/SocialProof";
+import AddressAutocomplete, { type AddressSelection } from "@/components/AddressAutocomplete";
+import FreightMap from "@/components/FreightMap";
 import logoFrete from "@/assets/logo-frete-garca.png";
 import type { Tables } from "@/integrations/supabase/types";
 
 type City = Tables<"cities">;
-type Neighborhood = Tables<"neighborhoods">;
 
 interface FreightResult {
   distance_km: number;
@@ -32,33 +34,44 @@ interface FreightResult {
   commission_percentage?: number;
   driver_value?: number;
   platform_value?: number;
+  estimated_time_min?: number;
 }
 
 export default function Index() {
   const simulatorRef = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<"sc" | "national">("sc");
   const [cities, setCities] = useState<City[]>([]);
-  const [originCity, setOriginCity] = useState("");
-  const [destinationCity, setDestinationCity] = useState("");
-  const [originNeighborhoods, setOriginNeighborhoods] = useState<Neighborhood[]>([]);
-  const [destNeighborhoods, setDestNeighborhoods] = useState<Neighborhood[]>([]);
-  const [originNeighborhood, setOriginNeighborhood] = useState("");
-  const [destNeighborhood, setDestNeighborhood] = useState("");
-  const [vehicleType, setVehicleType] = useState<"moto" | "car">("moto");
-  const [nationalOrigin, setNationalOrigin] = useState("");
-  const [nationalDestination, setNationalDestination] = useState("");
-  const [pickupStreet, setPickupStreet] = useState("");
-  const [pickupNumber, setPickupNumber] = useState("");
-  const [pickupComplement, setPickupComplement] = useState("");
+  const { toast } = useToast();
+
+  // SC mode state
+  const [originCityId, setOriginCityId] = useState("");
+  const [destCityId, setDestCityId] = useState("");
+  const [originAddress, setOriginAddress] = useState<AddressSelection | null>(null);
+  const [destAddress, setDestAddress] = useState<AddressSelection | null>(null);
+  const [originNumber, setOriginNumber] = useState("");
+  const [destNumber, setDestNumber] = useState("");
+  const [originComplement, setOriginComplement] = useState("");
+  const [destComplement, setDestComplement] = useState("");
+  const [weight, setWeight] = useState("");
+
+  // National mode state
+  const [natOriginCity, setNatOriginCity] = useState("");
+  const [natDestCity, setNatDestCity] = useState("");
+  const [natOriginAddress, setNatOriginAddress] = useState<AddressSelection | null>(null);
+  const [natDestAddress, setNatDestAddress] = useState<AddressSelection | null>(null);
+  const [natOriginNumber, setNatOriginNumber] = useState("");
+  const [natDestNumber, setNatDestNumber] = useState("");
+
+  // Map & route state
+  const [originCoords, setOriginCoords] = useState<[number, number] | null>(null);
+  const [destCoords, setDestCoords] = useState<[number, number] | null>(null);
+  const [routeDistance, setRouteDistance] = useState<number | null>(null);
+  const [routeDuration, setRouteDuration] = useState<number | null>(null);
+
+  // Result
   const [result, setResult] = useState<FreightResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [simulationId, setSimulationId] = useState<string | null>(null);
-  const [clientName, setClientName] = useState("");
-  const [clientPhone, setClientPhone] = useState("");
-  const [orderConfirmed, setOrderConfirmed] = useState(false);
-  const [confirmingOrder, setConfirmingOrder] = useState(false);
-  const { toast } = useToast();
 
   const scrollToSimulator = () => {
     simulatorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -69,47 +82,101 @@ export default function Index() {
       .then(({ data }) => { if (data) setCities(data); });
   }, []);
 
-  useEffect(() => {
-    if (!originCity) { setOriginNeighborhoods([]); setOriginNeighborhood(""); return; }
-    supabase.from("neighborhoods").select("*").eq("city_id", originCity).order("name")
-      .then(({ data }) => { if (data) setOriginNeighborhoods(data); });
-    setOriginNeighborhood("");
-  }, [originCity]);
+  const originCityName = mode === "sc"
+    ? cities.find(c => c.id === originCityId)?.name || ""
+    : natOriginCity;
+  const destCityName = mode === "sc"
+    ? cities.find(c => c.id === destCityId)?.name || ""
+    : natDestCity;
 
+  // Update coords when address is selected
+  const handleOriginSelect = useCallback((sel: AddressSelection) => {
+    setOriginAddress(sel);
+    setOriginCoords([sel.lat, sel.lng]);
+  }, []);
+  const handleDestSelect = useCallback((sel: AddressSelection) => {
+    setDestAddress(sel);
+    setDestCoords([sel.lat, sel.lng]);
+  }, []);
+  const handleNatOriginSelect = useCallback((sel: AddressSelection) => {
+    setNatOriginAddress(sel);
+    setOriginCoords([sel.lat, sel.lng]);
+  }, []);
+  const handleNatDestSelect = useCallback((sel: AddressSelection) => {
+    setNatDestAddress(sel);
+    setDestCoords([sel.lat, sel.lng]);
+  }, []);
+
+  const handleRouteCalculated = useCallback((distKm: number, durMin: number) => {
+    setRouteDistance(distKm);
+    setRouteDuration(durMin);
+  }, []);
+
+  // Reset on mode change
   useEffect(() => {
-    if (!destinationCity) { setDestNeighborhoods([]); setDestNeighborhood(""); return; }
-    supabase.from("neighborhoods").select("*").eq("city_id", destinationCity).order("name")
-      .then(({ data }) => { if (data) setDestNeighborhoods(data); });
-    setDestNeighborhood("");
-  }, [destinationCity]);
+    setResult(null);
+    setError("");
+    setOriginCoords(null);
+    setDestCoords(null);
+    setRouteDistance(null);
+    setRouteDuration(null);
+  }, [mode]);
+
+  // Reset address when city changes (SC)
+  useEffect(() => { setOriginAddress(null); setOriginCoords(null); }, [originCityId]);
+  useEffect(() => { setDestAddress(null); setDestCoords(null); }, [destCityId]);
+
+  // Auto-calculate when route is ready
+  useEffect(() => {
+    if (routeDistance && routeDistance > 0) {
+      handleSimulate();
+    }
+  }, [routeDistance]);
 
   const handleSimulate = async () => {
-    setError(""); setResult(null);
-    if (mode === "sc") {
-      if (!originCity || !destinationCity) { setError("Selecione a cidade de origem e destino."); return; }
-    } else {
-      if (!nationalOrigin.trim() || !nationalDestination.trim()) { setError("Digite a cidade de origem e destino."); return; }
+    if (!routeDistance) {
+      setError("Aguarde o cálculo da rota no mapa.");
+      return;
     }
-
+    setError("");
+    setResult(null);
     setLoading(true);
+
     try {
       const body = mode === "sc"
-        ? { mode: "sc", origin_city_id: originCity, destination_city_id: destinationCity, origin_neighborhood_id: originNeighborhood || null, destination_neighborhood_id: destNeighborhood || null, vehicle_type: vehicleType }
-        : { mode: "national", origin_text: nationalOrigin.trim(), destination_text: nationalDestination.trim(), vehicle_type: "car" };
+        ? {
+            mode: "sc",
+            origin_city_id: originCityId,
+            destination_city_id: destCityId,
+            vehicle_type: "moto",
+            distance_km: routeDistance,
+          }
+        : {
+            mode: "national",
+            origin_text: natOriginCity.trim(),
+            destination_text: natDestCity.trim(),
+            vehicle_type: "car",
+            distance_km: routeDistance,
+          };
 
       const { data, error: fnError } = await supabase.functions.invoke("calculate-freight", { body });
       if (fnError) throw fnError;
       if (data?.error) { setError(data.error); return; }
-      setResult(data);
 
-      const originName = mode === "sc" ? cities.find(c => c.id === originCity)?.name : nationalOrigin;
-      const destName = mode === "sc" ? cities.find(c => c.id === destinationCity)?.name : nationalDestination;
-      const simId = await logSimulation({ origin_city: originName || undefined, destination_city: destName || undefined, vehicle_type: mode === "national" ? "car" : vehicleType, mode, distance_km: data.distance_km, final_value: data.final_value });
-      setSimulationId(simId || null);
-      setOrderConfirmed(false);
-      setClientName("");
-      setClientPhone("");
-      trackEvent("simulation_completed", { mode, vehicle_type: mode === "national" ? "car" : vehicleType });
+      setResult({
+        ...data,
+        estimated_time_min: routeDuration ? Math.round(routeDuration) : undefined,
+      });
+
+      await logSimulation({
+        origin_city: originCityName || undefined,
+        destination_city: destCityName || undefined,
+        vehicle_type: mode === "national" ? "car" : "moto",
+        mode,
+        distance_km: data.distance_km,
+        final_value: data.final_value,
+      });
+      trackEvent("simulation_completed", { mode, distance: routeDistance });
     } catch (err: any) {
       setError(err.message || "Erro ao calcular frete.");
       toast({ title: "Erro", description: err.message, variant: "destructive" });
@@ -118,38 +185,39 @@ export default function Index() {
     }
   };
 
-  const handleConfirmOrder = async () => {
-    if (!clientName.trim() || !clientPhone.trim()) {
-      toast({ title: "Preencha seu nome e telefone", variant: "destructive" });
-      return;
-    }
-    setConfirmingOrder(true);
-    try {
-      const { error } = await supabase.from("orders").insert([{
-        simulation_id: simulationId,
-        client_name: clientName.trim(),
-        client_phone: clientPhone.trim(),
-        origin_city: originCityName || null,
-        destination_city: destCityName || null,
-        distance_km: result?.distance_km || null,
-        final_value: result?.final_value || null,
-        vehicle_type: mode === "national" ? "car" : vehicleType,
-        status: "pending",
-      }]);
-      if (error) throw error;
-      setOrderConfirmed(true);
-      trackEvent("order_confirmed", { simulation_id: simulationId });
-      toast({ title: "Pedido confirmado!", description: "Entraremos em contato em breve." });
-    } catch (err: any) {
-      toast({ title: "Erro", description: err.message, variant: "destructive" });
-    } finally {
-      setConfirmingOrder(false);
-    }
+  // WhatsApp message builder
+  const buildWhatsAppUrl = () => {
+    if (!result) return "#";
+    const modalidade = mode === "sc" ? "MOTO" : "CARRO";
+    const oAddr = mode === "sc" ? originAddress : natOriginAddress;
+    const dAddr = mode === "sc" ? destAddress : natDestAddress;
+    const oNum = mode === "sc" ? originNumber : natOriginNumber;
+    const dNum = mode === "sc" ? destNumber : natDestNumber;
+    const oCity = originCityName;
+    const dCity = destCityName;
+
+    const originText = `${oAddr?.street || ""}${oNum ? `, Nº ${oNum}` : ""} - ${oAddr?.neighborhood || ""} - ${oCity}`;
+    const destText = `${dAddr?.street || ""}${dNum ? `, Nº ${dNum}` : ""} - ${dAddr?.neighborhood || ""} - ${dCity}`;
+
+    const mapsLink = originCoords && destCoords
+      ? `https://www.google.com/maps/dir/?api=1&origin=${originCoords[0]},${originCoords[1]}&destination=${destCoords[0]},${destCoords[1]}`
+      : "";
+
+    const msg = `Olá, gostaria de solicitar um frete:
+
+Modalidade: ${modalidade}
+Origem: ${originText}
+Destino: ${destText}
+Distância: ${result.distance_km.toFixed(1)} km
+Tempo estimado: ${result.estimated_time_min || "—"} minutos
+Valor calculado: R$ ${result.final_value.toFixed(2)}
+${weight ? `Peso estimado: ${weight}` : ""}
+Rota: ${mapsLink}`;
+
+    return `https://wa.me/5547999999999?text=${encodeURIComponent(msg)}`;
   };
 
-  const originCityName = mode === "sc" ? cities.find(c => c.id === originCity)?.name : nationalOrigin;
-  const destCityName = mode === "sc" ? cities.find(c => c.id === destinationCity)?.name : nationalDestination;
-  const currentVehicleLabel = mode === "national" ? "Carro" : (vehicleType === "moto" ? "Moto" : "Carro");
+  const currentVehicleLabel = mode === "national" ? "Carro" : "Moto";
 
   return (
     <div className="min-h-screen bg-background">
@@ -170,7 +238,6 @@ export default function Index() {
         </div>
       </header>
 
-      {/* Hero */}
       <HeroSection onSimulateClick={scrollToSimulator} />
 
       {/* Social Proof Bar */}
@@ -219,108 +286,178 @@ export default function Index() {
         </div>
       </section>
 
+      {/* Social Proof Reviews */}
+      <SocialProof />
+
       {/* Simulator Section */}
       <section ref={simulatorRef} className="py-16 bg-muted/50" id="simulator">
-        <div className="mx-auto max-w-3xl px-4">
+        <div className="mx-auto max-w-4xl px-4">
           <Card className="shadow-xl border-0">
             <CardHeader className="text-center pb-2">
               <CardTitle className="text-2xl">Simule seu frete</CardTitle>
               <CardDescription>Calcule o valor do frete para sua entrega em segundos</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 pt-4">
-              <Tabs value={mode} onValueChange={(v) => { setMode(v as "sc" | "national"); setResult(null); setError(""); }}>
+              <Tabs value={mode} onValueChange={(v) => setMode(v as "sc" | "national")}>
                 <TabsList className="w-full">
-                  <TabsTrigger value="sc" className="flex-1 gap-1.5"><MapPin className="h-4 w-4" /> Santa Catarina</TabsTrigger>
-                  <TabsTrigger value="national" className="flex-1 gap-1.5"><Globe className="h-4 w-4" /> Nacional</TabsTrigger>
+                  <TabsTrigger value="sc" className="flex-1 gap-1.5"><Bike className="h-4 w-4" /> Moto (SC)</TabsTrigger>
+                  <TabsTrigger value="national" className="flex-1 gap-1.5"><Car className="h-4 w-4" /> Carro (Brasil)</TabsTrigger>
                 </TabsList>
 
+                {/* SC (MOTO) */}
                 <TabsContent value="sc" className="space-y-5 mt-5">
+                  {/* Origin */}
                   <div className="rounded-xl border bg-card p-4 space-y-3">
                     <div className="flex items-center gap-2 text-sm font-medium"><MapPin className="h-4 w-4 text-primary" /> Local de Coleta</div>
                     <div className="space-y-3">
                       <div className="space-y-1.5">
                         <Label className="text-xs">Cidade de coleta</Label>
-                        <Select value={originCity} onValueChange={setOriginCity}>
+                        <Select value={originCityId} onValueChange={setOriginCityId}>
                           <SelectTrigger><SelectValue placeholder="Selecione a cidade" /></SelectTrigger>
                           <SelectContent>{cities.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-xs">Bairro (opcional)</Label>
-                        <Select value={originNeighborhood} onValueChange={setOriginNeighborhood} disabled={!originNeighborhoods.length}>
-                          <SelectTrigger><SelectValue placeholder={originNeighborhoods.length ? "Selecione" : "Nenhum bairro"} /></SelectTrigger>
-                          <SelectContent>{originNeighborhoods.map(n => <SelectItem key={n.id} value={n.id}>{n.name}</SelectItem>)}</SelectContent>
-                        </Select>
+                        <Label className="text-xs">Rua</Label>
+                        <AddressAutocomplete
+                          cityName={originCityName}
+                          disabled={!originCityId}
+                          placeholder="Digite o nome da rua..."
+                          onSelect={handleOriginSelect}
+                        />
                       </div>
                       <div className="grid gap-3 sm:grid-cols-3">
-                        <div className="space-y-1.5 sm:col-span-2">
-                          <Label className="text-xs">Rua</Label>
-                          <Input value={pickupStreet} onChange={e => setPickupStreet(e.target.value)} placeholder="Nome da rua" />
-                        </div>
                         <div className="space-y-1.5">
                           <Label className="text-xs">Número</Label>
-                          <Input value={pickupNumber} onChange={e => setPickupNumber(e.target.value)} placeholder="Nº" />
+                          <Input value={originNumber} onChange={e => setOriginNumber(e.target.value)} placeholder="Nº" />
                         </div>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Complemento (opcional)</Label>
-                        <Input value={pickupComplement} onChange={e => setPickupComplement(e.target.value)} placeholder="Apto, bloco, referência..." />
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <Label className="text-xs">Complemento (opcional)</Label>
+                          <Input value={originComplement} onChange={e => setOriginComplement(e.target.value)} placeholder="Apto, bloco..." />
+                        </div>
                       </div>
                     </div>
                   </div>
+
+                  {/* Destination */}
                   <div className="rounded-xl border bg-card p-4 space-y-3">
                     <div className="flex items-center gap-2 text-sm font-medium"><MapPin className="h-4 w-4 text-destructive" /> Destino</div>
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-3">
                       <div className="space-y-1.5">
-                        <Label className="text-xs">Cidade</Label>
-                        <Select value={destinationCity} onValueChange={setDestinationCity}>
-                          <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <Label className="text-xs">Cidade de destino</Label>
+                        <Select value={destCityId} onValueChange={setDestCityId}>
+                          <SelectTrigger><SelectValue placeholder="Selecione a cidade" /></SelectTrigger>
                           <SelectContent>{cities.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-xs">Bairro (opcional)</Label>
-                        <Select value={destNeighborhood} onValueChange={setDestNeighborhood} disabled={!destNeighborhoods.length}>
-                          <SelectTrigger><SelectValue placeholder={destNeighborhoods.length ? "Selecione" : "Nenhum bairro"} /></SelectTrigger>
-                          <SelectContent>{destNeighborhoods.map(n => <SelectItem key={n.id} value={n.id}>{n.name}</SelectItem>)}</SelectContent>
-                        </Select>
+                        <Label className="text-xs">Rua</Label>
+                        <AddressAutocomplete
+                          cityName={destCityName}
+                          disabled={!destCityId}
+                          placeholder="Digite o nome da rua..."
+                          onSelect={handleDestSelect}
+                        />
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Número</Label>
+                          <Input value={destNumber} onChange={e => setDestNumber(e.target.value)} placeholder="Nº" />
+                        </div>
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <Label className="text-xs">Complemento (opcional)</Label>
+                          <Input value={destComplement} onChange={e => setDestComplement(e.target.value)} placeholder="Apto, bloco..." />
+                        </div>
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 rounded-xl border p-4 bg-accent/50">
-                    <Bike className="h-5 w-5 text-primary" />
-                    <span className="text-sm font-medium">Motoboy — entrega rápida em SC</span>
+
+                  {/* Weight */}
+                  <div className="rounded-xl border bg-card p-4 space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-medium"><Weight className="h-4 w-4 text-primary" /> Peso estimado</div>
+                    <Input
+                      value={weight}
+                      onChange={e => setWeight(e.target.value)}
+                      placeholder="Ex: 5kg - cesta de frutas, 15kg - caixa de frutas"
+                    />
+                    <p className="text-xs text-muted-foreground">Informe o peso aproximado para melhor atendimento.</p>
                   </div>
                 </TabsContent>
 
+                {/* NATIONAL (CARRO) */}
                 <TabsContent value="national" className="space-y-5 mt-5">
                   <div className="rounded-xl border bg-card p-4 space-y-3">
                     <div className="flex items-center gap-2 text-sm font-medium"><MapPin className="h-4 w-4 text-primary" /> Origem</div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Cidade de origem</Label>
-                      <Input value={nationalOrigin} onChange={(e) => setNationalOrigin(e.target.value)} placeholder="Ex: São Paulo, SP" />
+                    <div className="space-y-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Cidade de origem</Label>
+                        <Input value={natOriginCity} onChange={e => setNatOriginCity(e.target.value)} placeholder="Ex: São Paulo, SP" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Rua</Label>
+                        <AddressAutocomplete
+                          cityName={natOriginCity}
+                          state=""
+                          disabled={!natOriginCity.trim()}
+                          placeholder="Digite o nome da rua..."
+                          onSelect={handleNatOriginSelect}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Número</Label>
+                        <Input value={natOriginNumber} onChange={e => setNatOriginNumber(e.target.value)} placeholder="Nº" />
+                      </div>
                     </div>
                   </div>
                   <div className="rounded-xl border bg-card p-4 space-y-3">
                     <div className="flex items-center gap-2 text-sm font-medium"><MapPin className="h-4 w-4 text-destructive" /> Destino</div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Cidade de destino</Label>
-                      <Input value={nationalDestination} onChange={(e) => setNationalDestination(e.target.value)} placeholder="Ex: Rio de Janeiro, RJ" />
+                    <div className="space-y-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Cidade de destino</Label>
+                        <Input value={natDestCity} onChange={e => setNatDestCity(e.target.value)} placeholder="Ex: Rio de Janeiro, RJ" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Rua</Label>
+                        <AddressAutocomplete
+                          cityName={natDestCity}
+                          state=""
+                          disabled={!natDestCity.trim()}
+                          placeholder="Digite o nome da rua..."
+                          onSelect={handleNatDestSelect}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Número</Label>
+                        <Input value={natDestNumber} onChange={e => setNatDestNumber(e.target.value)} placeholder="Nº" />
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3 rounded-xl border p-4 bg-accent/50">
-                    <Car className="h-5 w-5 text-primary" />
-                    <span className="text-sm font-medium">Veículo: Carro (frete nacional)</span>
                   </div>
                 </TabsContent>
               </Tabs>
 
+              {/* Map */}
+              {(originCoords || destCoords) && (
+                <FreightMap
+                  originCoords={originCoords}
+                  destCoords={destCoords}
+                  onRouteCalculated={handleRouteCalculated}
+                />
+              )}
+
               {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
 
-              <Button onClick={() => { trackEvent("button_click", { button: "simulate_freight" }); handleSimulate(); }} disabled={loading} className="w-full gap-2 py-6 text-base font-semibold" size="lg">
-                {loading ? "Calculando..." : <>Simular Frete Agora <ArrowRight className="h-5 w-5" /></>}
-              </Button>
+              {!result && (
+                <Button
+                  onClick={() => { trackEvent("button_click", { button: "simulate_freight" }); handleSimulate(); }}
+                  disabled={loading || !routeDistance}
+                  className="w-full gap-2 py-6 text-base font-semibold"
+                  size="lg"
+                >
+                  {loading ? "Calculando..." : <>Calcular Valor <ArrowRight className="h-5 w-5" /></>}
+                </Button>
+              )}
 
+              {/* Result */}
               {result && (
                 <div className="rounded-xl border-2 border-primary/20 bg-accent/50 p-6 space-y-4">
                   <div>
@@ -329,13 +466,13 @@ export default function Index() {
                   </div>
                   <div className="space-y-2.5 text-sm">
                     <div className="flex justify-between"><span className="text-muted-foreground">Distância</span><span className="font-medium">{result.distance_km.toFixed(1)} km</span></div>
+                    {result.estimated_time_min && (
+                      <div className="flex justify-between"><span className="text-muted-foreground">Tempo estimado</span><span className="font-medium">{result.estimated_time_min} min</span></div>
+                    )}
                     <div className="flex justify-between"><span className="text-muted-foreground">Valor base</span><span>R$ {result.base_value.toFixed(2)}</span></div>
                     {result.origin_fee > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Taxa bairro origem</span><span>R$ {result.origin_fee.toFixed(2)}</span></div>}
                     {result.destination_fee > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Taxa bairro destino</span><span>R$ {result.destination_fee.toFixed(2)}</span></div>}
                     {(result.fixed_fee ?? 0) > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Taxa fixa</span><span>R$ {(result.fixed_fee ?? 0).toFixed(2)}</span></div>}
-                    {result.min_value > 0 && result.base_value + result.origin_fee + result.destination_fee + (result.fixed_fee ?? 0) < result.min_value && (
-                      <div className="flex justify-between text-muted-foreground"><span>Valor mínimo aplicado</span><span>R$ {result.min_value.toFixed(2)}</span></div>
-                    )}
                     {(result.pedagios ?? 0) > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Pedágios</span><span>R$ {(result.pedagios ?? 0).toFixed(2)}</span></div>}
                     {(result.taxa_retorno ?? 0) > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Taxa de retorno</span><span>R$ {(result.taxa_retorno ?? 0).toFixed(2)}</span></div>}
                     {(result.multiplier_applied ?? 1) > 1 && <div className="flex justify-between"><span className="text-muted-foreground">Multiplicador</span><span className="font-medium text-primary">{(result.multiplier_applied ?? 1).toFixed(2)}x</span></div>}
@@ -344,43 +481,18 @@ export default function Index() {
                     <span className="text-lg font-bold">Valor do Frete</span>
                     <span className="text-3xl font-extrabold text-primary">R$ {result.final_value.toFixed(2)}</span>
                   </div>
-                  {result.driver_value != null && result.platform_value != null && (
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div className="rounded-lg border p-3 text-center">
-                        <p className="text-muted-foreground text-xs">Valor Motorista</p>
-                        <p className="font-bold text-lg">R$ {result.driver_value.toFixed(2)}</p>
-                      </div>
-                      <div className="rounded-lg border p-3 text-center">
-                        <p className="text-muted-foreground text-xs">Comissão Plataforma ({result.commission_percentage ?? 0}%)</p>
-                        <p className="font-bold text-lg">R$ {result.platform_value.toFixed(2)}</p>
-                      </div>
-                    </div>
-                  )}
-                  {/* Order Confirmation */}
-                  {!orderConfirmed ? (
-                    <div className="border-t pt-4 space-y-3">
-                      <p className="text-sm font-medium">Confirmar pedido:</p>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <div className="space-y-1">
-                          <Label className="text-xs">Seu nome</Label>
-                          <Input value={clientName} onChange={e => setClientName(e.target.value)} placeholder="Nome completo" />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Telefone / WhatsApp</Label>
-                          <Input value={clientPhone} onChange={e => setClientPhone(e.target.value)} placeholder="(00) 00000-0000" />
-                        </div>
-                      </div>
-                      <Button onClick={handleConfirmOrder} disabled={confirmingOrder} className="w-full gap-2" size="lg">
-                        {confirmingOrder ? "Confirmando..." : <>Confirmar Pedido <CheckCircle2 className="h-5 w-5" /></>}
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="border-t pt-4 text-center space-y-2">
-                      <CheckCircle2 className="h-10 w-10 text-primary mx-auto" />
-                      <p className="font-semibold text-lg">Pedido Confirmado!</p>
-                      <p className="text-sm text-muted-foreground">Entraremos em contato pelo WhatsApp em breve.</p>
-                    </div>
-                  )}
+
+                  {/* WhatsApp CTA */}
+                  <Button
+                    asChild
+                    className="w-full gap-2 py-6 text-base font-semibold bg-[hsl(142,70%,45%)] hover:bg-[hsl(142,70%,40%)] text-white"
+                    size="lg"
+                  >
+                    <a href={buildWhatsAppUrl()} target="_blank" rel="noopener noreferrer">
+                      <MessageCircle className="h-5 w-5" />
+                      Solicitar pelo WhatsApp
+                    </a>
+                  </Button>
                 </div>
               )}
             </CardContent>
