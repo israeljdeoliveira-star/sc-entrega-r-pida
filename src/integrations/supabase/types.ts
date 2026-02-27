@@ -44,18 +44,24 @@ export type Database = {
       freight_settings: {
         Row: {
           id: string
+          national_min_value: number
+          national_price_per_km: number
           price_per_km_car: number
           price_per_km_moto: number
           updated_at: string
         }
         Insert: {
           id?: string
+          national_min_value?: number
+          national_price_per_km?: number
           price_per_km_car?: number
           price_per_km_moto?: number
           updated_at?: string
         }
         Update: {
           id?: string
+          national_min_value?: number
+          national_price_per_km?: number
           price_per_km_car?: number
           price_per_km_moto?: number
           updated_at?: string

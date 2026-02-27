@@ -6,14 +6,39 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function jsonResponse(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+async function geocode(orsKey: string, query: string) {
+  const res = await fetch(
+    `https://api.openrouteservice.org/geocode/search?api_key=${orsKey}&text=${encodeURIComponent(query)}&boundary.country=BR&size=1`
+  );
+  const data = await res.json();
+  if (!data.features?.length) return null;
+  return data.features[0].geometry.coordinates as [number, number];
+}
+
+async function getRouteDistance(orsKey: string, origin: [number, number], dest: [number, number]) {
+  const res = await fetch(
+    `https://api.openrouteservice.org/v2/directions/driving-car?api_key=${orsKey}&start=${origin[0]},${origin[1]}&end=${dest[0]},${dest[1]}`
+  );
+  const data = await res.json();
+  if (!data.features?.length) return null;
+  return data.features[0].properties.segments[0].distance / 1000;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { origin_city_id, destination_city_id, origin_neighborhood_id, destination_neighborhood_id, vehicle_type } =
-      await req.json();
+    const body = await req.json();
+    const mode = body.mode || "sc";
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -21,31 +46,53 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch origin and destination cities
+    // Fetch freight settings
+    const { data: settings } = await supabase.from("freight_settings").select("*").limit(1).single();
+    if (!settings) return jsonResponse({ error: "Configurações de frete não encontradas." });
+
+    if (mode === "national") {
+      // --- NATIONAL MODE ---
+      const { origin_text, destination_text } = body;
+      if (!origin_text || !destination_text) {
+        return jsonResponse({ error: "Informe a cidade de origem e destino." });
+      }
+
+      if (!orsKey) return jsonResponse({ error: "Serviço de mapas não configurado." });
+
+      const originCoords = await geocode(orsKey, `${origin_text}, Brazil`);
+      const destCoords = await geocode(orsKey, `${destination_text}, Brazil`);
+
+      if (!originCoords || !destCoords) {
+        return jsonResponse({ error: "Não foi possível localizar as cidades informadas." });
+      }
+
+      const distanceKm = await getRouteDistance(orsKey, originCoords, destCoords);
+      if (!distanceKm) return jsonResponse({ error: "Não foi possível calcular a rota." });
+
+      const pricePerKm = Number(settings.national_price_per_km);
+      const baseValue = distanceKm * pricePerKm;
+      const minValue = Number(settings.national_min_value);
+      const finalValue = Math.max(baseValue, minValue);
+
+      return jsonResponse({
+        distance_km: distanceKm,
+        base_value: baseValue,
+        origin_fee: 0,
+        destination_fee: 0,
+        min_value: minValue,
+        final_value: finalValue,
+      });
+    }
+
+    // --- SC MODE ---
+    const { origin_city_id, destination_city_id, origin_neighborhood_id, destination_neighborhood_id, vehicle_type } = body;
+
     const { data: originCity } = await supabase.from("cities").select("*").eq("id", origin_city_id).single();
     const { data: destCity } = await supabase.from("cities").select("*").eq("id", destination_city_id).single();
 
-    if (!originCity || !destCity) {
-      return new Response(JSON.stringify({ error: "Cidade não encontrada ou não cadastrada." }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    if (!originCity || !destCity) return jsonResponse({ error: "Cidade não encontrada ou não cadastrada." });
+    if (!originCity.is_active || !destCity.is_active) return jsonResponse({ error: "Uma das cidades selecionadas não está ativa." });
 
-    if (!originCity.is_active || !destCity.is_active) {
-      return new Response(JSON.stringify({ error: "Uma das cidades selecionadas não está ativa." }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Fetch freight settings
-    const { data: settings } = await supabase.from("freight_settings").select("*").limit(1).single();
-    if (!settings) {
-      return new Response(JSON.stringify({ error: "Configurações de frete não encontradas." }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Fetch neighborhoods fees
     let originFee = 0;
     let destFee = 0;
 
@@ -59,7 +106,7 @@ Deno.serve(async (req) => {
       if (n) destFee = Number(n.additional_fee);
     }
 
-    // Build search queries
+    // Build geocoding queries
     const originQuery = origin_neighborhood_id
       ? `${(await supabase.from("neighborhoods").select("name").eq("id", origin_neighborhood_id).single()).data?.name}, ${originCity.name}, SC, Brazil`
       : `${originCity.name}, SC, Brazil`;
@@ -71,67 +118,35 @@ Deno.serve(async (req) => {
     let distanceKm: number;
 
     if (orsKey) {
-      // Geocode origin
-      const geoOrigin = await fetch(
-        `https://api.openrouteservice.org/geocode/search?api_key=${orsKey}&text=${encodeURIComponent(originQuery)}&boundary.country=BR&size=1`
-      );
-      const geoOriginData = await geoOrigin.json();
+      const originCoords = await geocode(orsKey, originQuery);
+      const destCoords = await geocode(orsKey, destQuery);
 
-      const geoDest = await fetch(
-        `https://api.openrouteservice.org/geocode/search?api_key=${orsKey}&text=${encodeURIComponent(destQuery)}&boundary.country=BR&size=1`
-      );
-      const geoDestData = await geoDest.json();
-
-      if (!geoOriginData.features?.length || !geoDestData.features?.length) {
-        return new Response(JSON.stringify({ error: "Não foi possível localizar os endereços. Verifique as cidades/bairros." }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      if (!originCoords || !destCoords) {
+        return jsonResponse({ error: "Não foi possível localizar os endereços. Verifique as cidades/bairros." });
       }
 
-      const [origLon, origLat] = geoOriginData.features[0].geometry.coordinates;
-      const [destLon, destLat] = geoDestData.features[0].geometry.coordinates;
-
-      // Calculate route
-      const routeRes = await fetch(
-        `https://api.openrouteservice.org/v2/directions/driving-car?api_key=${orsKey}&start=${origLon},${origLat}&end=${destLon},${destLat}`
-      );
-      const routeData = await routeRes.json();
-
-      if (!routeData.features?.length) {
-        return new Response(JSON.stringify({ error: "Não foi possível calcular a rota." }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      distanceKm = routeData.features[0].properties.segments[0].distance / 1000;
+      const dist = await getRouteDistance(orsKey, originCoords, destCoords);
+      if (!dist) return jsonResponse({ error: "Não foi possível calcular a rota." });
+      distanceKm = dist;
     } else {
-      // Fallback: estimate distance (this is a rough estimate without API key)
-      distanceKm = 50; // default fallback
+      distanceKm = 50;
     }
 
     const pricePerKm = vehicle_type === "moto" ? Number(settings.price_per_km_moto) : Number(settings.price_per_km_car);
     const baseValue = distanceKm * pricePerKm;
     const totalBeforeMin = baseValue + originFee + destFee;
-
-    // Apply min value (use the higher min_value between origin and destination)
     const minValue = Math.max(Number(originCity.min_value), Number(destCity.min_value));
     const finalValue = Math.max(totalBeforeMin, minValue);
 
-    return new Response(
-      JSON.stringify({
-        distance_km: distanceKm,
-        base_value: baseValue,
-        origin_fee: originFee,
-        destination_fee: destFee,
-        min_value: minValue,
-        final_value: finalValue,
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    return jsonResponse({
+      distance_km: distanceKm,
+      base_value: baseValue,
+      origin_fee: originFee,
+      destination_fee: destFee,
+      min_value: minValue,
+      final_value: finalValue,
     });
+  } catch (err) {
+    return jsonResponse({ error: err.message }, 500);
   }
 });
