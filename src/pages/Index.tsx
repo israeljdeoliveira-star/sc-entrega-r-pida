@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Truck, Bike, Car, MapPin, ArrowRight, Settings, Globe, Shield, Zap, Clock, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import HeroSection from "@/components/HeroSection";
+import logoFrete from "@/assets/logo-frete-garca.png";
 import type { Tables } from "@/integrations/supabase/types";
 
 type City = Tables<"cities">;
@@ -46,6 +47,9 @@ export default function Index() {
   const [vehicleType, setVehicleType] = useState<"moto" | "car">("moto");
   const [nationalOrigin, setNationalOrigin] = useState("");
   const [nationalDestination, setNationalDestination] = useState("");
+  const [pickupStreet, setPickupStreet] = useState("");
+  const [pickupNumber, setPickupNumber] = useState("");
+  const [pickupComplement, setPickupComplement] = useState("");
   const [result, setResult] = useState<FreightResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -153,10 +157,7 @@ export default function Index() {
       <header className="sticky top-0 z-50 border-b bg-card/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-              <Truck className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="text-lg font-bold tracking-tight">FreteExpress</span>
+            <img src={logoFrete} alt="Frete Garça" className="h-9 object-contain" />
           </div>
           <nav className="flex items-center gap-1">
             <Button variant="ghost" size="sm" onClick={scrollToSimulator} className="hidden sm:inline-flex">
@@ -195,7 +196,7 @@ export default function Index() {
       <section className="py-16 bg-background">
         <div className="mx-auto max-w-6xl px-4">
           <div className="text-center mb-12">
-            <h2 className="text-2xl font-bold sm:text-3xl">Por que escolher a FreteExpress?</h2>
+            <h2 className="text-2xl font-bold sm:text-3xl">Por que escolher a Frete Garça?</h2>
             <p className="mt-2 text-muted-foreground">Tecnologia e confiança em cada entrega</p>
           </div>
           <div className="grid gap-6 sm:grid-cols-3">
@@ -223,7 +224,7 @@ export default function Index() {
         <div className="mx-auto max-w-3xl px-4">
           <Card className="shadow-xl border-0">
             <CardHeader className="text-center pb-2">
-              <CardTitle className="text-2xl">Simular Frete</CardTitle>
+              <CardTitle className="text-2xl">Simule seu frete</CardTitle>
               <CardDescription>Calcule o valor do frete para sua entrega em segundos</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 pt-4">
@@ -235,12 +236,12 @@ export default function Index() {
 
                 <TabsContent value="sc" className="space-y-5 mt-5">
                   <div className="rounded-xl border bg-card p-4 space-y-3">
-                    <div className="flex items-center gap-2 text-sm font-medium"><MapPin className="h-4 w-4 text-primary" /> Origem</div>
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="flex items-center gap-2 text-sm font-medium"><MapPin className="h-4 w-4 text-primary" /> Local de Coleta</div>
+                    <div className="space-y-3">
                       <div className="space-y-1.5">
-                        <Label className="text-xs">Cidade</Label>
+                        <Label className="text-xs">Cidade de coleta</Label>
                         <Select value={originCity} onValueChange={setOriginCity}>
-                          <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                          <SelectTrigger><SelectValue placeholder="Selecione a cidade" /></SelectTrigger>
                           <SelectContent>{cities.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
@@ -250,6 +251,20 @@ export default function Index() {
                           <SelectTrigger><SelectValue placeholder={originNeighborhoods.length ? "Selecione" : "Nenhum bairro"} /></SelectTrigger>
                           <SelectContent>{originNeighborhoods.map(n => <SelectItem key={n.id} value={n.id}>{n.name}</SelectItem>)}</SelectContent>
                         </Select>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <Label className="text-xs">Rua</Label>
+                          <Input value={pickupStreet} onChange={e => setPickupStreet(e.target.value)} placeholder="Nome da rua" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Número</Label>
+                          <Input value={pickupNumber} onChange={e => setPickupNumber(e.target.value)} placeholder="Nº" />
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Complemento (opcional)</Label>
+                        <Input value={pickupComplement} onChange={e => setPickupComplement(e.target.value)} placeholder="Apto, bloco, referência..." />
                       </div>
                     </div>
                   </div>
@@ -272,12 +287,9 @@ export default function Index() {
                       </div>
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs">Tipo de Veículo</Label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Button type="button" variant={vehicleType === "moto" ? "default" : "outline"} onClick={() => setVehicleType("moto")} className="gap-2"><Bike className="h-5 w-5" /> Moto</Button>
-                      <Button type="button" variant={vehicleType === "car" ? "default" : "outline"} onClick={() => setVehicleType("car")} className="gap-2"><Car className="h-5 w-5" /> Carro</Button>
-                    </div>
+                  <div className="flex items-center gap-3 rounded-xl border p-4 bg-accent/50">
+                    <Bike className="h-5 w-5 text-primary" />
+                    <span className="text-sm font-medium">Motoboy — entrega rápida em SC</span>
                   </div>
                 </TabsContent>
 
@@ -380,12 +392,9 @@ export default function Index() {
       <footer className="border-t bg-card py-8">
         <div className="mx-auto max-w-6xl px-4 text-center">
           <div className="flex items-center justify-center gap-2 mb-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary">
-              <Truck className="h-4 w-4 text-primary-foreground" />
-            </div>
-            <span className="font-bold">FreteExpress</span>
+            <img src={logoFrete} alt="Frete Garça" className="h-8 object-contain" />
           </div>
-          <p className="text-sm text-muted-foreground">© 2026 FreteExpress. Todos os direitos reservados.</p>
+          <p className="text-sm text-muted-foreground">© 2026 Frete Garça. Todos os direitos reservados.</p>
         </div>
       </footer>
     </div>
