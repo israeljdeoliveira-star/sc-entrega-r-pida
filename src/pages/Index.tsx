@@ -164,7 +164,7 @@ export default function Index() {
 
   const buildWhatsAppUrl = () => {
     if (!result) return "#";
-    const modalidade = mode === "sc" ? "MOTO" : "CARRO";
+    const modalidade = mode === "sc" ? "MOTOBOY" : "CARRO/CAMIONETE";
     const oAddr = mode === "sc" ? originAddress : natOriginAddress;
     const dAddr = mode === "sc" ? destAddress : natDestAddress;
     const oNum = mode === "sc" ? originNumber : natOriginNumber;
@@ -197,7 +197,7 @@ Rota: ${mapsLink}`;
     return `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(msg)}`;
   };
 
-  const currentVehicleLabel = mode === "national" ? "Carro" : "Moto";
+  const currentVehicleLabel = mode === "national" ? "Carro/Camionete" : "Motoboy";
 
   return (
     <div className="min-h-screen bg-background">
@@ -205,7 +205,7 @@ Rota: ${mapsLink}`;
       <header className="sticky top-0 z-50 border-b bg-card/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2.5">
-            <img src={logoFrete} alt="Frete Garça" className="h-9 object-contain" />
+            <img src={logoFrete} alt="Frete Garça" className="h-12 object-contain" />
           </div>
           <nav className="flex items-center gap-1">
             <Button variant="ghost" size="sm" onClick={scrollToSimulator} className="hidden sm:inline-flex">
@@ -237,52 +237,19 @@ Rota: ${mapsLink}`;
         </div>
       </section>
 
-      {/* Features */}
-      <section className="py-16 bg-background">
-        <div className="mx-auto max-w-6xl px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-2xl font-bold sm:text-3xl">Por que escolher a Frete Garça?</h2>
-            <p className="mt-2 text-muted-foreground">Tecnologia e confiança em cada entrega</p>
-          </div>
-          <div className="grid gap-6 sm:grid-cols-3">
-            {[
-              { icon: Zap, title: "Velocidade", desc: "Cotação em segundos com cálculo inteligente de rotas e preços em tempo real." },
-              { icon: Shield, title: "Segurança", desc: "Seguro total em todas as entregas. Sua mercadoria protegida do início ao fim." },
-              { icon: Clock, title: "Pontualidade", desc: "Motoristas verificados e rastreamento em tempo real para total tranquilidade." },
-            ].map((feature) => (
-              <Card key={feature.title} className="border-0 shadow-md bg-card hover:shadow-lg transition-shadow">
-                <CardContent className="pt-6">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent mb-4">
-                    <feature.icon className="h-6 w-6 text-primary" />
-                  </div>
-                  <h3 className="text-lg font-semibold">{feature.title}</h3>
-                  <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{feature.desc}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Services */}
-      <ServicesSection />
-
-      {/* Social Proof Reviews */}
-      <SocialProof />
-
       {/* Simulator Section */}
-      <section ref={simulatorRef} className="py-16 bg-muted/50" id="simulator">
+      <section ref={simulatorRef} className="py-8 sm:py-16 bg-muted/50" id="simulator">
         <div className="mx-auto max-w-4xl px-4">
           <Card className="shadow-xl border-0">
-            <CardHeader className="text-center pb-2">
-              <CardTitle className="text-2xl">Simule seu frete</CardTitle>
+            <CardHeader className="text-center pb-2 px-3 sm:px-6">
+              <CardTitle className="text-xl sm:text-2xl">Simule seu frete</CardTitle>
               <CardDescription>Calcule o valor do frete para sua entrega em segundos</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6 pt-4">
+            <CardContent className="space-y-4 sm:space-y-6 pt-4 px-3 sm:px-6">
               <Tabs value={mode} onValueChange={(v) => setMode(v as "sc" | "national")}>
                 <TabsList className="w-full">
-                  <TabsTrigger value="sc" className="flex-1 gap-1.5"><Bike className="h-4 w-4" /> Moto (SC)</TabsTrigger>
-                  <TabsTrigger value="national" className="flex-1 gap-1.5"><Car className="h-4 w-4" /> Carro (Brasil)</TabsTrigger>
+                  <TabsTrigger value="sc" className="flex-1 gap-1.5"><Bike className="h-4 w-4" /> Motoboy (SC)</TabsTrigger>
+                  <TabsTrigger value="national" className="flex-1 gap-1.5"><Car className="h-4 w-4" /> Carro / Camionete (Brasil)</TabsTrigger>
                 </TabsList>
 
                 {/* SC (MOTO) */}
@@ -388,7 +355,7 @@ Rota: ${mapsLink}`;
               </Tabs>
 
               {/* Scheduling & Urgency */}
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
                 <div className="rounded-xl border bg-card p-4 space-y-3">
                   <div className="flex items-center gap-2 text-sm font-medium">
                     <CalendarDays className="h-4 w-4 text-primary" /> Quando é a entrega?
@@ -498,6 +465,39 @@ Rota: ${mapsLink}`;
           </Card>
         </div>
       </section>
+
+      {/* Features */}
+      <section className="py-16 bg-background">
+        <div className="mx-auto max-w-6xl px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-2xl font-bold sm:text-3xl">Por que escolher a Frete Garça?</h2>
+            <p className="mt-2 text-muted-foreground">Tecnologia e confiança em cada entrega</p>
+          </div>
+          <div className="grid gap-6 sm:grid-cols-3">
+            {[
+              { icon: Zap, title: "Velocidade", desc: "Cotação em segundos com cálculo inteligente de rotas e preços em tempo real." },
+              { icon: Shield, title: "Segurança", desc: "Seguro total em todas as entregas. Sua mercadoria protegida do início ao fim." },
+              { icon: Clock, title: "Pontualidade", desc: "Motoboys verificados e rastreamento em tempo real para total tranquilidade." },
+            ].map((feature) => (
+              <Card key={feature.title} className="border-0 shadow-md bg-card hover:shadow-lg transition-shadow">
+                <CardContent className="pt-6">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent mb-4">
+                    <feature.icon className="h-6 w-6 text-primary" />
+                  </div>
+                  <h3 className="text-lg font-semibold">{feature.title}</h3>
+                  <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{feature.desc}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Services */}
+      <ServicesSection />
+
+      {/* Social Proof Reviews */}
+      <SocialProof />
 
       {/* Footer */}
       <footer className="border-t bg-card py-8">
