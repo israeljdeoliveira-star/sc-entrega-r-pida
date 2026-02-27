@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bike, Car, MapPin, ArrowRight, Globe, Shield, Zap, Clock, MessageCircle, Weight, CalendarDays, Package } from "lucide-react";
+import { Bike, Car, MapPin, ArrowRight, Globe, Shield, Zap, Clock, MessageCircle, CalendarDays, Package } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import HeroSection from "@/components/HeroSection";
 import SocialProof from "@/components/SocialProof";
@@ -294,191 +294,212 @@ Rota: ${mapsLink}`;
       </section>
 
       {/* Simulator Section */}
-      <section ref={simulatorRef} className="py-6 sm:py-12 bg-muted/50" id="simulator">
-        <div className="mx-auto max-w-4xl px-3 sm:px-4">
-          <Card className="shadow-xl border-0">
-            <CardHeader className="text-center pb-2 px-3 sm:px-6">
-              <CardTitle className="text-xl sm:text-2xl">Simule seu frete</CardTitle>
-              <CardDescription>Calcule o valor do frete para sua entrega em segundos</CardDescription>
+      <section ref={simulatorRef} className="py-8 sm:py-14 bg-muted/30" id="simulator">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6">
+          <Card className="shadow-lg border-0">
+            <CardHeader className="text-center pb-1 px-4 sm:px-8">
+              <CardTitle className="text-xl sm:text-2xl font-bold">Simule seu frete</CardTitle>
+              <CardDescription className="text-sm">Calcule o valor em segundos</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4 sm:space-y-6 pt-4 px-3 sm:px-6">
+            <CardContent className="space-y-6 pt-4 px-4 sm:px-8">
               <Tabs value={mode} onValueChange={(v) => setMode(v as "sc" | "national")}>
                 <TabsList className="w-full">
-                  <TabsTrigger value="sc" className="flex-1 gap-1.5"><Bike className="h-4 w-4" /> Simular Motoboy</TabsTrigger>
-                  <TabsTrigger value="national" className="flex-1 gap-1.5"><Car className="h-4 w-4" /> Simular meu Frete</TabsTrigger>
+                  <TabsTrigger value="sc" className="flex-1 gap-1.5"><Bike className="h-4 w-4" /> Motoboy</TabsTrigger>
+                  <TabsTrigger value="national" className="flex-1 gap-1.5"><Car className="h-4 w-4" /> Carro / Camionete</TabsTrigger>
                 </TabsList>
 
                 {/* SC (MOTOBOY) */}
-                <TabsContent value="sc" className="space-y-4 mt-4">
-                  <div className="rounded-xl border bg-card p-3 sm:p-4 space-y-3">
-                    <div className="flex items-center gap-2 text-sm font-medium"><MapPin className="h-4 w-4 text-primary" /> Local de Coleta</div>
-                    <div className="space-y-3">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Cidade de coleta</Label>
-                        <Select value={originCityId} onValueChange={setOriginCityId}>
-                          <SelectTrigger><SelectValue placeholder="Selecione a cidade" /></SelectTrigger>
-                          <SelectContent>{cities.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Rua</Label>
-                        <AddressAutocomplete cityName={originCityName} disabled={!originCityId} placeholder="Digite o nome da rua..." onSelect={handleOriginSelect} />
-                      </div>
-                      <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Número</Label>
-                          <Input value={originNumber} onChange={e => setOriginNumber(e.target.value)} placeholder="Nº" />
-                        </div>
-                        <div className="space-y-1.5 col-span-1 sm:col-span-2">
-                          <Label className="text-xs">Complemento (opcional)</Label>
-                          <Input value={originComplement} onChange={e => setOriginComplement(e.target.value)} placeholder="Apto, bloco..." />
-                        </div>
-                      </div>
+                <TabsContent value="sc" className="space-y-6 mt-5">
+                  {/* Coleta */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                      <MapPin className="h-4 w-4 text-primary" /> Local de Coleta
                     </div>
-                  </div>
-
-                  <div className="rounded-xl border bg-card p-3 sm:p-4 space-y-3">
-                    <div className="flex items-center gap-2 text-sm font-medium"><MapPin className="h-4 w-4 text-destructive" /> Destino</div>
-                    <div className="space-y-3">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Cidade de destino</Label>
-                        <Select value={destCityId} onValueChange={setDestCityId}>
-                          <SelectTrigger><SelectValue placeholder="Selecione a cidade" /></SelectTrigger>
-                          <SelectContent>{cities.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Rua</Label>
-                        <AddressAutocomplete cityName={destCityName} disabled={!destCityId} placeholder="Digite o nome da rua..." onSelect={handleDestSelect} />
-                      </div>
-                      <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Número</Label>
-                          <Input value={destNumber} onChange={e => setDestNumber(e.target.value)} placeholder="Nº" />
-                        </div>
-                        <div className="space-y-1.5 col-span-1 sm:col-span-2">
-                          <Label className="text-xs">Complemento (opcional)</Label>
-                          <Input value={destComplement} onChange={e => setDestComplement(e.target.value)} placeholder="Apto, bloco..." />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Category & Weight */}
-                  <div className="rounded-xl border bg-card p-3 sm:p-4 space-y-3">
-                    <div className="flex items-center gap-2 text-sm font-medium"><Package className="h-4 w-4 text-primary" /> O que vamos buscar?</div>
-                    <Select value={category} onValueChange={setCategory}>
-                      <SelectTrigger><SelectValue placeholder="Selecione a categoria" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Eletrônicos">Eletrônicos</SelectItem>
-                        <SelectItem value="Documentos">Documentos</SelectItem>
-                        <SelectItem value="Alimentos">Alimentos</SelectItem>
-                        <SelectItem value="Chaves">Chaves</SelectItem>
-                        <SelectItem value="Pacotes">Pacotes</SelectItem>
-                        <SelectItem value="Outros">Outros</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs flex items-center gap-1"><Weight className="h-3.5 w-3.5" /> Peso estimado</Label>
-                      <Select value={weight} onValueChange={setWeight}>
-                        <SelectTrigger><SelectValue placeholder="Selecione o peso" /></SelectTrigger>
-                        <SelectContent>
-                          {WEIGHT_OPTIONS.map(w => (
-                            <SelectItem key={w.value} value={w.value}>{w.label}</SelectItem>
-                          ))}
-                        </SelectContent>
+                    <div className="space-y-2">
+                      <Label className="text-sm">Cidade</Label>
+                      <Select value={originCityId} onValueChange={setOriginCityId}>
+                        <SelectTrigger><SelectValue placeholder="Selecione a cidade" /></SelectTrigger>
+                        <SelectContent>{cities.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
                       </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm">Rua</Label>
+                      <AddressAutocomplete cityName={originCityName} disabled={!originCityId} placeholder="Digite o nome da rua..." onSelect={handleOriginSelect} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm">Número</Label>
+                      <Input value={originNumber} onChange={e => setOriginNumber(e.target.value)} placeholder="Nº" />
+                    </div>
+                  </div>
+
+                  <div className="border-t border-border" />
+
+                  {/* Destino */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                      <MapPin className="h-4 w-4 text-destructive" /> Destino
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm">Cidade</Label>
+                      <Select value={destCityId} onValueChange={setDestCityId}>
+                        <SelectTrigger><SelectValue placeholder="Selecione a cidade" /></SelectTrigger>
+                        <SelectContent>{cities.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm">Rua</Label>
+                      <AddressAutocomplete cityName={destCityName} disabled={!destCityId} placeholder="Digite o nome da rua..." onSelect={handleDestSelect} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm">Número</Label>
+                      <Input value={destNumber} onChange={e => setDestNumber(e.target.value)} placeholder="Nº" />
+                    </div>
+                  </div>
+
+                  <div className="border-t border-border" />
+
+                  {/* Category & Weight — flat layout */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                      <Package className="h-4 w-4 text-primary" /> Detalhes da carga
+                    </div>
+                    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label className="text-sm">Categoria</Label>
+                        <Select value={category} onValueChange={setCategory}>
+                          <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Eletrônicos">Eletrônicos</SelectItem>
+                            <SelectItem value="Documentos">Documentos</SelectItem>
+                            <SelectItem value="Alimentos">Alimentos</SelectItem>
+                            <SelectItem value="Chaves">Chaves</SelectItem>
+                            <SelectItem value="Pacotes">Pacotes</SelectItem>
+                            <SelectItem value="Outros">Outros</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm">Peso estimado</Label>
+                        <Select value={weight} onValueChange={setWeight}>
+                          <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                          <SelectContent>
+                            {WEIGHT_OPTIONS.map(w => (
+                              <SelectItem key={w.value} value={w.value}>{w.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </div>
                 </TabsContent>
 
                 {/* NATIONAL (CARRO / CAMIONETE) */}
-                <TabsContent value="national" className="space-y-4 mt-4">
-                  <div className="rounded-xl border bg-card p-3 sm:p-4 space-y-3">
-                    <div className="flex items-center gap-2 text-sm font-medium"><MapPin className="h-4 w-4 text-primary" /> Origem</div>
-                    <div className="space-y-3">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Cidade de origem</Label>
-                        <Input value={natOriginCity} onChange={e => setNatOriginCity(e.target.value)} placeholder="Ex: São Paulo, SP" />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Rua</Label>
-                        <AddressAutocomplete cityName={natOriginCity} state="" disabled={!natOriginCity.trim()} placeholder="Digite o nome da rua..." onSelect={handleNatOriginSelect} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Número</Label>
-                        <Input value={natOriginNumber} onChange={e => setNatOriginNumber(e.target.value)} placeholder="Nº" />
-                      </div>
+                <TabsContent value="national" className="space-y-6 mt-5">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                      <MapPin className="h-4 w-4 text-primary" /> Origem
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm">Cidade</Label>
+                      <Input value={natOriginCity} onChange={e => setNatOriginCity(e.target.value)} placeholder="Ex: São Paulo, SP" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm">Rua</Label>
+                      <AddressAutocomplete cityName={natOriginCity} state="" disabled={!natOriginCity.trim()} placeholder="Digite o nome da rua..." onSelect={handleNatOriginSelect} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm">Número</Label>
+                      <Input value={natOriginNumber} onChange={e => setNatOriginNumber(e.target.value)} placeholder="Nº" />
                     </div>
                   </div>
-                  <div className="rounded-xl border bg-card p-3 sm:p-4 space-y-3">
-                    <div className="flex items-center gap-2 text-sm font-medium"><MapPin className="h-4 w-4 text-destructive" /> Destino</div>
-                    <div className="space-y-3">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Cidade de destino</Label>
-                        <Input value={natDestCity} onChange={e => setNatDestCity(e.target.value)} placeholder="Ex: Rio de Janeiro, RJ" />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Rua</Label>
-                        <AddressAutocomplete cityName={natDestCity} state="" disabled={!natDestCity.trim()} placeholder="Digite o nome da rua..." onSelect={handleNatDestSelect} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Número</Label>
-                        <Input value={natDestNumber} onChange={e => setNatDestNumber(e.target.value)} placeholder="Nº" />
-                      </div>
+
+                  <div className="border-t border-border" />
+
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                      <MapPin className="h-4 w-4 text-destructive" /> Destino
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm">Cidade</Label>
+                      <Input value={natDestCity} onChange={e => setNatDestCity(e.target.value)} placeholder="Ex: Rio de Janeiro, RJ" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm">Rua</Label>
+                      <AddressAutocomplete cityName={natDestCity} state="" disabled={!natDestCity.trim()} placeholder="Digite o nome da rua..." onSelect={handleNatDestSelect} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm">Número</Label>
+                      <Input value={natDestNumber} onChange={e => setNatDestNumber(e.target.value)} placeholder="Nº" />
                     </div>
                   </div>
                 </TabsContent>
               </Tabs>
 
-              {/* Scheduling & Urgency */}
-              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
-                <div className="rounded-xl border bg-card p-3 sm:p-4 space-y-3">
-                  <div className="flex items-center gap-2 text-sm font-medium">
-                    <CalendarDays className="h-4 w-4 text-primary" /> Quando é a entrega?
-                  </div>
-                  <Select value={deliveryWhen} onValueChange={(v) => setDeliveryWhen(v as "hoje" | "agendar")}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="hoje">Hoje</SelectItem>
-                      <SelectItem value="agendar">Agendar</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {deliveryWhen === "hoje" && (
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Horário preferencial (opcional)</Label>
-                      <Input type="time" value={deliveryTime} onChange={e => setDeliveryTime(e.target.value)} />
-                    </div>
-                  )}
-                  {deliveryWhen === "agendar" && (
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Horário desejado</Label>
-                      <Input type="datetime-local" value={deliveryTime} onChange={e => setDeliveryTime(e.target.value)} />
-                    </div>
-                  )}
-                </div>
+              <div className="border-t border-border" />
 
-                <div className="rounded-xl border bg-card p-3 sm:p-4 space-y-3">
-                  <div className="flex items-center gap-2 text-sm font-medium">
-                    <Zap className="h-4 w-4 text-primary" /> Urgência
+              {/* Scheduling & Urgency — cleaner layout */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <CalendarDays className="h-4 w-4 text-primary" /> Entrega
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={deliveryWhen === "hoje" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setDeliveryWhen("hoje")}
+                  >
+                    Hoje
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={deliveryWhen === "agendar" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setDeliveryWhen("agendar")}
+                  >
+                    Agendar
+                  </Button>
+                </div>
+                {deliveryWhen === "hoje" && (
+                  <div className="space-y-2">
+                    <Label className="text-sm">Horário preferencial (opcional)</Label>
+                    <Input type="time" value={deliveryTime} onChange={e => setDeliveryTime(e.target.value)} />
                   </div>
-                  <Select value={urgency} onValueChange={(v) => setUrgency(v as "express" | "normal" | "urgente")}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="normal">Normal - 40-45 min + 5 min deslocamento</SelectItem>
-                      <SelectItem value="express">Express - Até 1 hora</SelectItem>
-                      <SelectItem value="urgente">Urgente - Até 30 min</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {urgency === "express" && (
-                    <p className="text-xs text-primary font-medium">⏱ Até 1 hora</p>
-                  )}
-                  {urgency === "normal" && (
-                    <p className="text-xs text-muted-foreground">40-45 min + 5 min deslocamento até coleta</p>
-                  )}
-                  {urgency === "urgente" && (
-                    <p className="text-xs text-destructive font-medium">⚡ Até 30 minutos</p>
-                  )}
+                )}
+                {deliveryWhen === "agendar" && (
+                  <div className="space-y-2">
+                    <Label className="text-sm">Data e horário</Label>
+                    <Input type="datetime-local" value={deliveryTime} onChange={e => setDeliveryTime(e.target.value)} />
+                  </div>
+                )}
+              </div>
+
+              {/* Urgency chips */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <Zap className="h-4 w-4 text-primary" /> Urgência
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    { value: "normal" as const, label: "Normal", desc: "40–45 min", icon: "🕐" },
+                    { value: "express" as const, label: "Express", desc: "Até 1h", icon: "⏱" },
+                    { value: "urgente" as const, label: "Urgente", desc: "Até 30 min", icon: "⚡" },
+                  ]).map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setUrgency(opt.value)}
+                      className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-colors border ${
+                        urgency === opt.value
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background text-foreground border-border hover:bg-accent"
+                      }`}
+                    >
+                      <span>{opt.icon}</span>
+                      <span>{opt.label}</span>
+                      <span className="text-xs opacity-70">({opt.desc})</span>
+                    </button>
+                  ))}
                 </div>
               </div>
 
