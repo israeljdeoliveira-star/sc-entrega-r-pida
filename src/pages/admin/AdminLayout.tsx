@@ -31,7 +31,7 @@ export default function AdminLayout() {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
             <Truck className="h-6 w-6 text-primary" />
-            <h1 className="text-lg font-bold">Painel Administrativo</h1>
+            <h1 className="text-lg font-bold">Frete Garça - Admin</h1>
           </div>
           <div className="flex items-center gap-2">
             <Link to="/">
