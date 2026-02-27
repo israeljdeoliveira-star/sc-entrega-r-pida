@@ -1,28 +1,27 @@
 
 
-## Correcao: Loop de redirecionamento no auth
+## Diagnóstico
 
-O problema atual: `ProtectedRoute` redireciona para `/login` antes do `checkAdmin` completar, e o `Login.tsx` redireciona de volta, criando um loop.
+As 3 páginas (Códigos Externos, Colaboradores, Log de Alterações) estão com o código correto e renderizam normalmente. O problema de acesso é causado pelo loop de redirecionamento do fluxo de autenticação que já foi corrigido na última edição do `useAuth.tsx` e `ProtectedRoute.tsx`.
 
-### Arquivos a alterar (2)
+O console mostra apenas warnings inofensivos de refs ("Function components cannot be given refs") que não afetam o funcionamento.
 
-**1. `src/hooks/useAuth.tsx`** - Simplificar sincronizacao
-- Iniciar `loading = true` e so mudar para `false` apos `getSession` + `checkAdmin` completarem
-- No `onAuthStateChange`, nao resetar `adminCheckComplete` para evitar flicker
-- Usar um ref para evitar corrida entre `getSession` e `onAuthStateChange`
+## Plano de correção
 
-**2. `src/components/ProtectedRoute.tsx`** - Blindar contra estado intermediario
-- Mostrar loading enquanto `loading === true` OU (`user` existe mas `adminCheckComplete === false`)
-- So redirecionar quando temos certeza absoluta: `!loading && adminCheckComplete`
+### 1. Verificar que o auth funciona corretamente
+- O código atual do `useAuth.tsx` e `ProtectedRoute.tsx` já está correto
+- Se o problema persistir ao acessar `/admin`, pode ser cache do navegador — precisa de um hard refresh (Ctrl+Shift+R)
 
-### Logica simplificada do useAuth
+### 2. Melhorias nas 3 páginas (se necessário)
 
-```text
-getSession() → session encontrada?
-  SIM → checkAdmin(userId) → seta isAdmin + adminCheckComplete → loading = false
-  NAO → isAdmin=false, adminCheckComplete=true → loading = false
+**PricingLogPage** — Funcional. Mostra "Nenhuma alteração registrada" quando vazio. Sem problemas.
 
-onAuthStateChange → mesma logica, mas ignora se requestId mudou
-```
+**ExternalCodesPage** — Funcional. Carrega e salva configurações de WhatsApp, GTM, GA4, Pixel, etc. Sem problemas.
 
-Nenhuma pagina interna do admin sera tocada.
+**CollaboratorsPage** — Funcional. Permite adicionar/remover admins. Restrito ao master email. Sem problemas.
+
+### Ação recomendada
+Nenhuma alteração de código é necessária nessas páginas. O problema era exclusivamente no fluxo de autenticação, que já foi corrigido. Recarregue a página (Ctrl+Shift+R) para limpar o cache e testar o acesso ao `/admin`.
+
+Se houver um problema específico em alguma dessas páginas (visual, funcionalidade, dados não aparecendo), me diga exatamente o que está errado para eu corrigir.
+
