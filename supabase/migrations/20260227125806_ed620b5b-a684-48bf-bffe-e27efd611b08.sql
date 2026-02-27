@@ -1,0 +1,1 @@
+ALTER TABLE public.simulations_log ADD COLUMN IF NOT EXISTS ip_hash text;
