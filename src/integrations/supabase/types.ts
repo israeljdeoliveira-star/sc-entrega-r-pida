@@ -98,33 +98,87 @@ export type Database = {
         }
         Relationships: []
       }
-      freight_settings: {
+      dynamic_rules: {
         Row: {
-          fixed_fee: number
+          condition_type: string
+          created_at: string
           id: string
-          national_min_value: number
-          national_price_per_km: number
-          price_per_km_car: number
-          price_per_km_moto: number
-          updated_at: string
+          is_active: boolean
+          multiplier: number
+          name: string
         }
         Insert: {
-          fixed_fee?: number
+          condition_type: string
+          created_at?: string
           id?: string
-          national_min_value?: number
-          national_price_per_km?: number
-          price_per_km_car?: number
-          price_per_km_moto?: number
-          updated_at?: string
+          is_active?: boolean
+          multiplier?: number
+          name: string
         }
         Update: {
+          condition_type?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          multiplier?: number
+          name?: string
+        }
+        Relationships: []
+      }
+      freight_settings: {
+        Row: {
+          comissao_carro: number
+          comissao_moto: number
+          fixed_fee: number
+          id: string
+          margem_minima_carro: number
+          margem_minima_moto: number
+          multiplicador_carro: number
+          multiplicador_moto: number
+          national_min_value: number
+          national_price_per_km: number
+          pedagios_padrao: number
+          price_per_km_car: number
+          price_per_km_moto: number
+          taxa_retorno_carro: number
+          updated_at: string
+          valor_base_nacional: number
+        }
+        Insert: {
+          comissao_carro?: number
+          comissao_moto?: number
           fixed_fee?: number
           id?: string
+          margem_minima_carro?: number
+          margem_minima_moto?: number
+          multiplicador_carro?: number
+          multiplicador_moto?: number
           national_min_value?: number
           national_price_per_km?: number
+          pedagios_padrao?: number
           price_per_km_car?: number
           price_per_km_moto?: number
+          taxa_retorno_carro?: number
           updated_at?: string
+          valor_base_nacional?: number
+        }
+        Update: {
+          comissao_carro?: number
+          comissao_moto?: number
+          fixed_fee?: number
+          id?: string
+          margem_minima_carro?: number
+          margem_minima_moto?: number
+          multiplicador_carro?: number
+          multiplicador_moto?: number
+          national_min_value?: number
+          national_price_per_km?: number
+          pedagios_padrao?: number
+          price_per_km_car?: number
+          price_per_km_moto?: number
+          taxa_retorno_carro?: number
+          updated_at?: string
+          valor_base_nacional?: number
         }
         Relationships: []
       }
@@ -222,6 +276,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      pricing_change_log: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          field_name: string | null
+          id: string
+          new_value: string | null
+          old_value: string | null
+          table_name: string | null
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          field_name?: string | null
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          table_name?: string | null
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          field_name?: string | null
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          table_name?: string | null
+        }
+        Relationships: []
       }
       profiles: {
         Row: {

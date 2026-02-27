@@ -50,8 +50,12 @@ Deno.serve(async (req) => {
     const { data: settings } = await supabase.from("freight_settings").select("*").limit(1).single();
     if (!settings) return jsonResponse({ error: "Configurações de frete não encontradas." });
 
+    // Fetch active dynamic rules and calculate combined multiplier
+    const { data: dynamicRules } = await supabase.from("dynamic_rules").select("multiplier").eq("is_active", true);
+    const dynamicMultiplier = (dynamicRules || []).reduce((acc: number, r: any) => acc * Number(r.multiplier), 1.0);
+
     if (mode === "national") {
-      // --- NATIONAL MODE ---
+      // --- NATIONAL MODE (CARRO) ---
       const { origin_text, destination_text } = body;
       if (!origin_text || !destination_text) {
         return jsonResponse({ error: "Informe a cidade de origem e destino." });
@@ -71,9 +75,21 @@ Deno.serve(async (req) => {
 
       const fixedFee = Number(settings.fixed_fee || 0);
       const pricePerKm = Number(settings.national_price_per_km);
-      const baseValue = distanceKm * pricePerKm;
+      const valorBaseNacional = Number(settings.valor_base_nacional || 0);
+      const pedagios = Number(settings.pedagios_padrao || 0);
+      const taxaRetorno = Number(settings.taxa_retorno_carro || 0);
+      const multiplicadorCarro = Number(settings.multiplicador_carro || 1);
+      const margemMinimaCarro = Number(settings.margem_minima_carro || 0);
       const minValue = Number(settings.national_min_value);
-      const finalValue = Math.max(baseValue + fixedFee, minValue);
+      const comissaoCarro = Number(settings.comissao_carro || 15);
+
+      const baseValue = valorBaseNacional + (distanceKm * pricePerKm);
+      const totalMultiplier = multiplicadorCarro * dynamicMultiplier;
+      const totalBeforeMin = (baseValue + pedagios + taxaRetorno + fixedFee) * totalMultiplier;
+      const finalValue = Math.max(totalBeforeMin, margemMinimaCarro, minValue);
+
+      const platformValue = finalValue * (comissaoCarro / 100);
+      const driverValue = finalValue - platformValue;
 
       return jsonResponse({
         distance_km: distanceKm,
@@ -81,12 +97,18 @@ Deno.serve(async (req) => {
         origin_fee: 0,
         destination_fee: 0,
         fixed_fee: fixedFee,
+        pedagios: pedagios,
+        taxa_retorno: taxaRetorno,
         min_value: minValue,
         final_value: finalValue,
+        multiplier_applied: totalMultiplier,
+        commission_percentage: comissaoCarro,
+        driver_value: driverValue,
+        platform_value: platformValue,
       });
     }
 
-    // --- SC MODE ---
+    // --- SC MODE (MOTO/CARRO) ---
     const { origin_city_id, destination_city_id, origin_neighborhood_id, destination_neighborhood_id, vehicle_type } = body;
 
     const { data: originCity } = await supabase.from("cities").select("*").eq("id", origin_city_id).single();
@@ -135,11 +157,20 @@ Deno.serve(async (req) => {
     }
 
     const fixedFee = Number(settings.fixed_fee || 0);
-    const pricePerKm = vehicle_type === "moto" ? Number(settings.price_per_km_moto) : Number(settings.price_per_km_car);
+    const isMoto = vehicle_type === "moto";
+    const pricePerKm = isMoto ? Number(settings.price_per_km_moto) : Number(settings.price_per_km_car);
+    const multiplicador = isMoto ? Number(settings.multiplicador_moto || 1) : Number(settings.multiplicador_carro || 1);
+    const margemMinima = isMoto ? Number(settings.margem_minima_moto || 0) : Number(settings.margem_minima_carro || 0);
+    const comissao = isMoto ? Number(settings.comissao_moto || 15) : Number(settings.comissao_carro || 15);
+
+    const cityMinValue = Math.max(Number(originCity.min_value), Number(destCity.min_value));
     const baseValue = distanceKm * pricePerKm;
-    const totalBeforeMin = baseValue + originFee + destFee + fixedFee;
-    const minValue = Math.max(Number(originCity.min_value), Number(destCity.min_value));
-    const finalValue = Math.max(totalBeforeMin, minValue);
+    const totalMultiplier = multiplicador * dynamicMultiplier;
+    const totalBeforeMin = (Math.max(baseValue, cityMinValue) + originFee + destFee + fixedFee) * totalMultiplier;
+    const finalValue = Math.max(totalBeforeMin, margemMinima);
+
+    const platformValue = finalValue * (comissao / 100);
+    const driverValue = finalValue - platformValue;
 
     return jsonResponse({
       distance_km: distanceKm,
@@ -147,8 +178,12 @@ Deno.serve(async (req) => {
       origin_fee: originFee,
       destination_fee: destFee,
       fixed_fee: fixedFee,
-      min_value: minValue,
+      min_value: cityMinValue,
       final_value: finalValue,
+      multiplier_applied: totalMultiplier,
+      commission_percentage: comissao,
+      driver_value: driverValue,
+      platform_value: platformValue,
     });
   } catch (err) {
     return jsonResponse({ error: err.message }, 500);
