@@ -23,8 +23,14 @@ interface FreightResult {
   origin_fee: number;
   destination_fee: number;
   fixed_fee?: number;
+  pedagios?: number;
+  taxa_retorno?: number;
   min_value: number;
   final_value: number;
+  multiplier_applied?: number;
+  commission_percentage?: number;
+  driver_value?: number;
+  platform_value?: number;
 }
 
 export default function Index() {
@@ -318,11 +324,26 @@ export default function Index() {
                     {result.min_value > 0 && result.base_value + result.origin_fee + result.destination_fee + (result.fixed_fee ?? 0) < result.min_value && (
                       <div className="flex justify-between text-muted-foreground"><span>Valor mínimo aplicado</span><span>R$ {result.min_value.toFixed(2)}</span></div>
                     )}
+                    {(result.pedagios ?? 0) > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Pedágios</span><span>R$ {(result.pedagios ?? 0).toFixed(2)}</span></div>}
+                    {(result.taxa_retorno ?? 0) > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Taxa de retorno</span><span>R$ {(result.taxa_retorno ?? 0).toFixed(2)}</span></div>}
+                    {(result.multiplier_applied ?? 1) > 1 && <div className="flex justify-between"><span className="text-muted-foreground">Multiplicador</span><span className="font-medium text-primary">{(result.multiplier_applied ?? 1).toFixed(2)}x</span></div>}
                   </div>
                   <div className="border-t pt-4 flex justify-between items-center">
                     <span className="text-lg font-bold">Valor do Frete</span>
                     <span className="text-3xl font-extrabold text-primary">R$ {result.final_value.toFixed(2)}</span>
                   </div>
+                  {result.driver_value != null && result.platform_value != null && (
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="rounded-lg border p-3 text-center">
+                        <p className="text-muted-foreground text-xs">Valor Motorista</p>
+                        <p className="font-bold text-lg">R$ {result.driver_value.toFixed(2)}</p>
+                      </div>
+                      <div className="rounded-lg border p-3 text-center">
+                        <p className="text-muted-foreground text-xs">Comissão Plataforma ({result.commission_percentage ?? 0}%)</p>
+                        <p className="font-bold text-lg">R$ {result.platform_value.toFixed(2)}</p>
+                      </div>
+                    </div>
+                  )}
                   {/* Order Confirmation */}
                   {!orderConfirmed ? (
                     <div className="border-t pt-4 space-y-3">

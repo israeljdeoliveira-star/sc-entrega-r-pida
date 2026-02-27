@@ -12,6 +12,8 @@ import DashboardPage from "./pages/admin/DashboardPage";
 import CitiesPage from "./pages/admin/CitiesPage";
 import NeighborhoodsPage from "./pages/admin/NeighborhoodsPage";
 import FreightSettingsPage from "./pages/admin/FreightSettingsPage";
+import DynamicRulesPage from "./pages/admin/DynamicRulesPage";
+import PricingLogPage from "./pages/admin/PricingLogPage";
 import DriversPage from "./pages/admin/DriversPage";
 import ClientsPage from "./pages/admin/ClientsPage";
 import OrdersPage from "./pages/admin/OrdersPage";
@@ -41,6 +43,8 @@ const App = () => (
               <Route path="cities" element={<CitiesPage />} />
               <Route path="neighborhoods" element={<NeighborhoodsPage />} />
               <Route path="settings" element={<FreightSettingsPage />} />
+              <Route path="rules" element={<DynamicRulesPage />} />
+              <Route path="pricing-log" element={<PricingLogPage />} />
               <Route path="drivers" element={<DriversPage />} />
               <Route path="clients" element={<ClientsPage />} />
               <Route path="orders" element={<OrdersPage />} />

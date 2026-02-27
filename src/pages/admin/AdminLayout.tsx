@@ -1,7 +1,7 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Building2, MapPin, Settings, LogOut, Truck, LayoutDashboard, Users, CarFront, Package } from "lucide-react";
+import { Building2, MapPin, Settings, LogOut, Truck, LayoutDashboard, Users, CarFront, Package, Zap, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -10,6 +10,8 @@ const navItems = [
   { to: "/admin/cities", label: "Cidades", icon: Building2 },
   { to: "/admin/neighborhoods", label: "Bairros", icon: MapPin },
   { to: "/admin/settings", label: "Valores", icon: Settings },
+  { to: "/admin/rules", label: "Regras Dinâmicas", icon: Zap },
+  { to: "/admin/pricing-log", label: "Log de Alterações", icon: FileText },
   { to: "/admin/drivers", label: "Motoristas", icon: CarFront },
   { to: "/admin/clients", label: "Clientes", icon: Users },
 ];
