@@ -1,27 +1,28 @@
 
-Objetivo: corrigir o login Google que autentica no backend, mas mantém o usuário no `/login` no preview.
 
-Implementação (curta e direta):
+## Correcao: Loop de redirecionamento no auth
 
-1) Ajustar callback OAuth para preservar rota/query do preview  
-- Arquivo: `src/hooks/useAuth.tsx`  
-- Trocar `redirect_uri: window.location.origin` por URL completa atual (`origin + pathname + search`) para manter o token de preview e retornar corretamente ao app.
+O problema atual: `ProtectedRoute` redireciona para `/login` antes do `checkAdmin` completar, e o `Login.tsx` redireciona de volta, criando um loop.
 
-2) Tornar validação de admin mais robusta  
-- Arquivo: `src/hooks/useAuth.tsx`  
-- Em `checkAdmin`, usar RPC `has_role(_user_id, _role)` (já existe no banco) em vez de `select` direto em `user_roles`.  
-- Tratar erro explicitamente e manter `isAdmin = false` com log/toast de diagnóstico.
+### Arquivos a alterar (2)
 
-3) Fluxo pós-login no `/login`  
-- Arquivo: `src/pages/Login.tsx`  
-- Manter redirecionamento automático para `/admin` quando `user && isAdmin && !loading`.  
-- Se `user && !isAdmin && !loading`, exibir aviso claro de “conta sem permissão administrativa” (evita parecer que login falhou).
+**1. `src/hooks/useAuth.tsx`** - Simplificar sincronizacao
+- Iniciar `loading = true` e so mudar para `false` apos `getSession` + `checkAdmin` completarem
+- No `onAuthStateChange`, nao resetar `adminCheckComplete` para evitar flicker
+- Usar um ref para evitar corrida entre `getSession` e `onAuthStateChange`
 
-4) Validação final do fluxo  
-- Testar no preview com `israeljdeoliveira@gmail.com`: clicar “Entrar com Google” → concluir Google → redirecionar para `/admin`.  
-- Testar também no domínio publicado para confirmar mesmo comportamento.  
-- Validar que usuário sem role admin continua bloqueado (com mensagem explícita).
+**2. `src/components/ProtectedRoute.tsx`** - Blindar contra estado intermediario
+- Mostrar loading enquanto `loading === true` OU (`user` existe mas `adminCheckComplete === false`)
+- So redirecionar quando temos certeza absoluta: `!loading && adminCheckComplete`
 
-Arquivos a alterar:
-- `src/hooks/useAuth.tsx`
-- `src/pages/Login.tsx`
+### Logica simplificada do useAuth
+
+```text
+getSession() → session encontrada?
+  SIM → checkAdmin(userId) → seta isAdmin + adminCheckComplete → loading = false
+  NAO → isAdmin=false, adminCheckComplete=true → loading = false
+
+onAuthStateChange → mesma logica, mas ignora se requestId mudou
+```
+
+Nenhuma pagina interna do admin sera tocada.
