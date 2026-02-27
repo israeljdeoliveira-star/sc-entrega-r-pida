@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -8,15 +8,18 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function Login() {
   const [submitting, setSubmitting] = useState(false);
-  const { signInWithGoogle, user, isAdmin, loading } = useAuth();
+  const warnedNoAdminRef = useRef(false);
+  const { signInWithGoogle, user, isAdmin, adminCheckComplete, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!loading && user) {
+    if (!loading && adminCheckComplete && user) {
       if (isAdmin) {
+        warnedNoAdminRef.current = false;
         navigate("/admin", { replace: true });
-      } else {
+      } else if (!warnedNoAdminRef.current) {
+        warnedNoAdminRef.current = true;
         toast({
           title: "Acesso negado",
           description: "Sua conta não possui permissão administrativa.",
@@ -24,7 +27,11 @@ export default function Login() {
         });
       }
     }
-  }, [loading, user, isAdmin, navigate]);
+
+    if (!user) {
+      warnedNoAdminRef.current = false;
+    }
+  }, [loading, adminCheckComplete, user, isAdmin, navigate, toast]);
 
   const handleGoogleLogin = async () => {
     setSubmitting(true);
