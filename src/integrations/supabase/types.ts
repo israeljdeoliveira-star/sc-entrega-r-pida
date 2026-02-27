@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      analytics_events: {
+        Row: {
+          created_at: string
+          event_data: Json | null
+          event_type: string
+          id: string
+          page: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_data?: Json | null
+          event_type: string
+          id?: string
+          page?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_data?: Json | null
+          event_type?: string
+          id?: string
+          page?: string | null
+        }
+        Relationships: []
+      }
       cities: {
         Row: {
           created_at: string
@@ -41,8 +65,42 @@ export type Database = {
         }
         Relationships: []
       }
+      drivers: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          license_plate: string | null
+          name: string
+          phone: string | null
+          user_id: string | null
+          vehicle_type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          license_plate?: string | null
+          name: string
+          phone?: string | null
+          user_id?: string | null
+          vehicle_type?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          license_plate?: string | null
+          name?: string
+          phone?: string | null
+          user_id?: string | null
+          vehicle_type?: string
+        }
+        Relationships: []
+      }
       freight_settings: {
         Row: {
+          fixed_fee: number
           id: string
           national_min_value: number
           national_price_per_km: number
@@ -51,6 +109,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          fixed_fee?: number
           id?: string
           national_min_value?: number
           national_price_per_km?: number
@@ -59,6 +118,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          fixed_fee?: number
           id?: string
           national_min_value?: number
           national_price_per_km?: number
@@ -100,24 +160,132 @@ export type Database = {
           },
         ]
       }
+      orders: {
+        Row: {
+          client_name: string | null
+          client_phone: string | null
+          confirmed_at: string | null
+          created_at: string
+          destination_city: string | null
+          distance_km: number | null
+          driver_id: string | null
+          final_value: number | null
+          id: string
+          origin_city: string | null
+          simulation_id: string | null
+          status: string
+          vehicle_type: string | null
+        }
+        Insert: {
+          client_name?: string | null
+          client_phone?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          destination_city?: string | null
+          distance_km?: number | null
+          driver_id?: string | null
+          final_value?: number | null
+          id?: string
+          origin_city?: string | null
+          simulation_id?: string | null
+          status?: string
+          vehicle_type?: string | null
+        }
+        Update: {
+          client_name?: string | null
+          client_phone?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          destination_city?: string | null
+          distance_km?: number | null
+          driver_id?: string | null
+          final_value?: number | null
+          id?: string
+          origin_city?: string | null
+          simulation_id?: string | null
+          status?: string
+          vehicle_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_simulation_id_fkey"
+            columns: ["simulation_id"]
+            isOneToOne: false
+            referencedRelation: "simulations_log"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
           email: string | null
           id: string
+          name: string | null
+          phone: string | null
           user_id: string
         }
         Insert: {
           created_at?: string
           email?: string | null
           id?: string
+          name?: string | null
+          phone?: string | null
           user_id: string
         }
         Update: {
           created_at?: string
           email?: string | null
           id?: string
+          name?: string | null
+          phone?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      simulations_log: {
+        Row: {
+          created_at: string
+          destination_city: string | null
+          destination_neighborhood: string | null
+          distance_km: number | null
+          final_value: number | null
+          id: string
+          mode: string
+          origin_city: string | null
+          origin_neighborhood: string | null
+          vehicle_type: string
+        }
+        Insert: {
+          created_at?: string
+          destination_city?: string | null
+          destination_neighborhood?: string | null
+          distance_km?: number | null
+          final_value?: number | null
+          id?: string
+          mode?: string
+          origin_city?: string | null
+          origin_neighborhood?: string | null
+          vehicle_type: string
+        }
+        Update: {
+          created_at?: string
+          destination_city?: string | null
+          destination_neighborhood?: string | null
+          distance_km?: number | null
+          final_value?: number | null
+          id?: string
+          mode?: string
+          origin_city?: string | null
+          origin_neighborhood?: string | null
+          vehicle_type?: string
         }
         Relationships: []
       }
@@ -153,7 +321,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "user"
+      app_role: "admin" | "user" | "driver" | "client"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -281,7 +449,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user"],
+      app_role: ["admin", "user", "driver", "client"],
     },
   },
 } as const

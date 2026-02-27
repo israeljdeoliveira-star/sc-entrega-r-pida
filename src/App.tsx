@@ -8,9 +8,12 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import AdminLayout from "./pages/admin/AdminLayout";
+import DashboardPage from "./pages/admin/DashboardPage";
 import CitiesPage from "./pages/admin/CitiesPage";
 import NeighborhoodsPage from "./pages/admin/NeighborhoodsPage";
 import FreightSettingsPage from "./pages/admin/FreightSettingsPage";
+import DriversPage from "./pages/admin/DriversPage";
+import ClientsPage from "./pages/admin/ClientsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,10 +36,12 @@ const App = () => (
                 </ProtectedRoute>
               }
             >
-              <Route index element={<CitiesPage />} />
+              <Route index element={<DashboardPage />} />
               <Route path="cities" element={<CitiesPage />} />
               <Route path="neighborhoods" element={<NeighborhoodsPage />} />
               <Route path="settings" element={<FreightSettingsPage />} />
+              <Route path="drivers" element={<DriversPage />} />
+              <Route path="clients" element={<ClientsPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

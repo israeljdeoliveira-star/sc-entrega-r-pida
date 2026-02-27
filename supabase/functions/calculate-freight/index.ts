@@ -69,16 +69,18 @@ Deno.serve(async (req) => {
       const distanceKm = await getRouteDistance(orsKey, originCoords, destCoords);
       if (!distanceKm) return jsonResponse({ error: "Não foi possível calcular a rota." });
 
+      const fixedFee = Number(settings.fixed_fee || 0);
       const pricePerKm = Number(settings.national_price_per_km);
       const baseValue = distanceKm * pricePerKm;
       const minValue = Number(settings.national_min_value);
-      const finalValue = Math.max(baseValue, minValue);
+      const finalValue = Math.max(baseValue + fixedFee, minValue);
 
       return jsonResponse({
         distance_km: distanceKm,
         base_value: baseValue,
         origin_fee: 0,
         destination_fee: 0,
+        fixed_fee: fixedFee,
         min_value: minValue,
         final_value: finalValue,
       });
@@ -132,9 +134,10 @@ Deno.serve(async (req) => {
       distanceKm = 50;
     }
 
+    const fixedFee = Number(settings.fixed_fee || 0);
     const pricePerKm = vehicle_type === "moto" ? Number(settings.price_per_km_moto) : Number(settings.price_per_km_car);
     const baseValue = distanceKm * pricePerKm;
-    const totalBeforeMin = baseValue + originFee + destFee;
+    const totalBeforeMin = baseValue + originFee + destFee + fixedFee;
     const minValue = Math.max(Number(originCity.min_value), Number(destCity.min_value));
     const finalValue = Math.max(totalBeforeMin, minValue);
 
@@ -143,6 +146,7 @@ Deno.serve(async (req) => {
       base_value: baseValue,
       origin_fee: originFee,
       destination_fee: destFee,
+      fixed_fee: fixedFee,
       min_value: minValue,
       final_value: finalValue,
     });

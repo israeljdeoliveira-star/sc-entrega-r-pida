@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { trackEvent, logSimulation } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -20,6 +21,7 @@ interface FreightResult {
   base_value: number;
   origin_fee: number;
   destination_fee: number;
+  fixed_fee?: number;
   min_value: number;
   final_value: number;
 }
@@ -97,6 +99,19 @@ export default function Index() {
       if (fnError) throw fnError;
       if (data?.error) { setError(data.error); return; }
       setResult(data);
+
+      // Log simulation
+      const originName = mode === "sc" ? cities.find(c => c.id === originCity)?.name : nationalOrigin;
+      const destName = mode === "sc" ? cities.find(c => c.id === destinationCity)?.name : nationalDestination;
+      logSimulation({
+        origin_city: originName || undefined,
+        destination_city: destName || undefined,
+        vehicle_type: mode === "national" ? "car" : vehicleType,
+        mode,
+        distance_km: data.distance_km,
+        final_value: data.final_value,
+      });
+      trackEvent("simulation_completed", { mode, vehicle_type: mode === "national" ? "car" : vehicleType });
     } catch (err: any) {
       setError(err.message || "Erro ao calcular frete.");
       toast({ title: "Erro", description: err.message, variant: "destructive" });
@@ -242,7 +257,7 @@ export default function Index() {
               </Alert>
             )}
 
-            <Button onClick={handleSimulate} disabled={loading} className="w-full gap-2" size="lg">
+            <Button onClick={() => { trackEvent("button_click", { button: "simulate_freight" }); handleSimulate(); }} disabled={loading} className="w-full gap-2" size="lg">
               {loading ? "Calculando..." : <>Simular Frete <ArrowRight className="h-4 w-4" /></>}
             </Button>
 
@@ -273,7 +288,13 @@ export default function Index() {
                       <span>R$ {result.destination_fee.toFixed(2)}</span>
                     </div>
                   )}
-                  {result.min_value > 0 && result.base_value + result.origin_fee + result.destination_fee < result.min_value && (
+                  {(result.fixed_fee ?? 0) > 0 && (
+                    <div className="flex justify-between">
+                      <span>Taxa fixa</span>
+                      <span>R$ {(result.fixed_fee ?? 0).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {result.min_value > 0 && result.base_value + result.origin_fee + result.destination_fee + (result.fixed_fee ?? 0) < result.min_value && (
                     <div className="flex justify-between text-muted-foreground">
                       <span>Valor mínimo aplicado</span>
                       <span>R$ {result.min_value.toFixed(2)}</span>
