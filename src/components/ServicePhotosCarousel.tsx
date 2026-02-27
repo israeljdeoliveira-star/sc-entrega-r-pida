@@ -38,12 +38,14 @@ export default function ServicePhotosCarousel() {
               {photos.map((photo) => (
                 <CarouselItem key={photo.id} className="basis-full sm:basis-1/2 lg:basis-1/3">
                   <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-                    <img
-                      src={photo.image_url}
-                      alt={photo.title || "Serviço Frete Garça"}
-                      className="w-full h-56 object-cover"
-                      loading="lazy"
-                    />
+                    <div className="aspect-[9/16]">
+                      <img
+                        src={photo.image_url}
+                        alt={photo.title || "Serviço Frete Garça"}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    </div>
                     {photo.title && (
                       <div className="p-3">
                         <p className="text-sm font-medium text-center">{photo.title}</p>
