@@ -1,11 +1,12 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Building2, MapPin, Settings, LogOut, Truck, LayoutDashboard, Users, CarFront } from "lucide-react";
+import { Building2, MapPin, Settings, LogOut, Truck, LayoutDashboard, Users, CarFront, Package } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { to: "/admin/orders", label: "Pedidos", icon: Package },
   { to: "/admin/cities", label: "Cidades", icon: Building2 },
   { to: "/admin/neighborhoods", label: "Bairros", icon: MapPin },
   { to: "/admin/settings", label: "Valores", icon: Settings },
