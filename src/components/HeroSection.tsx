@@ -67,11 +67,11 @@ export default function HeroSection({ onSimulateClick }: HeroSectionProps) {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.1, duration: 0.5 }}
-            className="h-16 sm:h-20 mb-8 mx-auto object-contain"
+            className="h-24 sm:h-32 mb-8 mx-auto object-contain"
           />
 
           <h1 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl lg:text-5xl leading-tight">
-            Fretes rápidos e entregas em{" "}
+            Fretes rápidos e entregas Motoboy em{" "}
             <span className="text-primary inline-block min-w-[180px]">
               🚗 <span className="border-r-2 border-primary pr-1 animate-pulse">{cityText}</span>
             </span>
