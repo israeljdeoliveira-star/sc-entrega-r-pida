@@ -1,37 +1,64 @@
 
 
-## Plan: Hero Cleanup, Sticky Navbar, Stats Bar, Motoboy Fields & Carro City Search
+## Plan: Tagline Bar, Tab Renames, CTA Animation, Weight Comparisons, Google Reviews Link, Footer SEO, City Animation Fix, Nav Menu, Service Photos Carousel
 
-### 1. HeroSection — Remove logo, add tagline (`src/components/HeroSection.tsx`)
-- Remove the `<motion.img>` logo block (lines 64-71)
-- Add a tagline above h1: "Somos de Itapema — fretes via motoboy a partir de R$ 15,00"
-- Reduce vertical padding (`py-12 sm:py-20`)
+### 1. Tagline → Top border bar (`src/pages/Index.tsx`)
+- Move "📍 Somos de Itapema — fretes via motoboy a partir de R$ 15,00" from HeroSection to a thin bar ABOVE the navbar (always visible, not affected by scroll hide)
+- Remove that text from `HeroSection.tsx`
 
-### 2. Navbar — Logo clickable, auto-hide on scroll (`src/pages/Index.tsx`)
-- Wrap navbar logo in `<a href="#top">` or `onClick` scroll to top
-- Add state to track scroll direction; hide navbar when scrolling down, show when scrolling up (CSS transform + transition)
+### 2. Tab renames (`src/pages/Index.tsx`)
+- "Motoboy (SC)" → "Simular Motoboy"
+- "Carro / Camionete" → "Simular meu Frete"
 
-### 3. Stats Bar — Single line, more subtle (`src/pages/Index.tsx`)
-- Change from grid to horizontal flex in one row: `flex items-center justify-between`
-- Reduce text sizes: value `text-lg font-semibold`, label `text-[11px]`
-- Reduce padding: `py-2`
-- Add dividers between items
+### 3. CTA "Simular Frete Agora" animation (`src/components/HeroSection.tsx`)
+- Add framer-motion pulse/bounce animation to the CTA button (scale loop)
 
-### 4. Motoboy (SC) — Add category & weight dropdowns per reference image (`src/pages/Index.tsx`)
-- Replace free-text weight input with two selects matching the uploaded image:
-  - **"O que vamos buscar?"** — Select with options: `Eletrônicos`, `Documentos`, `Alimentos`, `Chaves`, `Pacotes`, `Outros`
-  - **"Peso"** — Select with options: `1 kg`, `2 kg`, `3 kg`, `5 kg`, `10 kg`, `15 kg`, `20 kg`, `25 kg`, `30 kg`
-  - Helper text: "Exemplo: do peso de uma Melancia pequena"
-- Update urgency select labels:
-  - `normal` → "Normal - 40-45 min + 5 min deslocamento"
-  - `express` → "Express - Até 1 hora"
-  - `urgente` → "Urgente - Até 30 min"
+### 4. Remove "24/7 Suporte" from stats bar (`src/pages/Index.tsx`)
+- Remove that stat item, keep only 3 items
 
-### 5. Carro (Nacional) — City search from DB (`src/pages/Index.tsx`)
-- For national mode, instead of free text input, use AddressAutocomplete-style search that queries Nominatim for Brazilian cities
-- After city is selected, lock the AddressAutocomplete to that city so street suggestions are filtered
+### 5. Weight options with fruit comparisons (`src/pages/Index.tsx`)
+- Max 20kg, remove 25kg and 30kg
+- Add fruit comparisons: "1 kg - 🍎 Uma maçã grande", "2 kg - 🍊 Duas laranjas", "3 kg - 🍍 Um abacaxi", "5 kg - 🍉 Uma melancia pequena", "10 kg - 🎃 Uma abóbora média", "15 kg - 🍉🍉 Duas melancias", "20 kg - 🎃🎃 Duas abóboras"
+
+### 6. Google reviews link (`src/components/SocialProof.tsx`)
+- Wrap the "4.9 ★ no Google" badge and each review card with an `<a>` link to Google reviews page (configurable, use placeholder URL like `https://g.page/frete-garca/review`)
+
+### 7. Footer with SEO links (`src/pages/Index.tsx`)
+- Replace minimal footer with multi-column footer: Serviços, Cidades Atendidas, Contato, Links Úteis
+- Include internal anchor links for SEO
+
+### 8. City animation stays on same line (`src/components/HeroSection.tsx`)
+- Alternate between 🏍️ and 🚗 icons with each city change
+- Use `whitespace-nowrap` and adequate `min-w` to prevent line break during typing
+
+### 9. Navigation menu (`src/pages/Index.tsx`)
+- Add nav links in navbar: Início, Simulador, Serviços, Avaliações
+- Each scrolls to the corresponding section via `id` anchors
+
+### 10. Service Photos Carousel — DB + Storage + Admin + Frontend
+
+**Database migration:**
+- Create `service_photos` table: `id`, `title`, `image_url`, `sort_order`, `is_active`, `created_at`
+- Create storage bucket `service-photos` (public)
+- RLS: public SELECT, admin ALL
+
+**Admin (`src/pages/admin/AdminLayout.tsx` + new `src/pages/admin/ServicePhotosPage.tsx`):**
+- New admin page to upload/manage service photos
+- Add nav item "Fotos Serviços" + route
+
+**Frontend (`src/components/ServicePhotosCarousel.tsx`):**
+- Carousel component using embla-carousel showing service photos from DB
+- Place between Services and SocialProof sections
+
+### Files to Create
+- `src/pages/admin/ServicePhotosPage.tsx`
+- `src/components/ServicePhotosCarousel.tsx`
+- Migration SQL (service_photos table + storage bucket)
 
 ### Files to Edit
-- `src/components/HeroSection.tsx` — remove logo, add tagline, reduce padding
-- `src/pages/Index.tsx` — navbar scroll behavior, logo click, stats layout, motoboy fields, urgency labels
+- `src/pages/Index.tsx` (tagline bar, tab renames, stats, weight, footer, nav menu, carousel placement)
+- `src/components/HeroSection.tsx` (remove tagline, CTA animation, city line fix with alternating icons)
+- `src/components/SocialProof.tsx` (Google reviews link)
+- `src/pages/admin/AdminLayout.tsx` (new nav item)
+- `src/App.tsx` (new admin route)
 
