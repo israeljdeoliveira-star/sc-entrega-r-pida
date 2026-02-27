@@ -294,9 +294,9 @@ Rota: ${mapsLink}`;
       </section>
 
       {/* Simulator Section */}
-      <section ref={simulatorRef} className="py-8 sm:py-14 bg-muted/30" id="simulator">
+      <section ref={simulatorRef} className="py-8 sm:py-14 bg-gradient-to-br from-blue-50/50 via-background to-blue-100/30 dark:from-blue-950/30 dark:via-background dark:to-blue-900/20" id="simulator">
         <div className="mx-auto max-w-3xl px-4 sm:px-6">
-          <Card className="shadow-lg border-0">
+          <Card className="bg-blue-50/60 dark:bg-blue-950/40 backdrop-blur-xl border border-blue-200/50 dark:border-blue-400/20 shadow-[0_8px_32px_rgba(59,130,246,0.15)] ring-1 ring-blue-100/30 dark:ring-blue-500/10">
             <CardHeader className="text-center pb-1 px-4 sm:px-8">
               <CardTitle className="text-xl sm:text-2xl font-bold">Simule seu frete</CardTitle>
               <CardDescription className="text-sm">Calcule o valor em segundos</CardDescription>
