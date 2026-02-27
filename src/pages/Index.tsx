@@ -226,7 +226,7 @@ export default function Index() {
       ? `https://www.google.com/maps/dir/?api=1&origin=${originCoords[0]},${originCoords[1]}&destination=${destCoords[0]},${destCoords[1]}`
       : "";
 
-    const urgencyLabels = { express: "Express (até 1 hora)", normal: "Normal (40-45 min)", urgente: "Urgente (até 30 min)" };
+    const urgencyLabels = { normal: "Normal (40-45 min)", express: "Express (até 25 min · +R$8)", urgente: "Urgente (até 15 min · +R$12)" };
 
     const categoryLabel = category ? `\nCategoria: ${category}` : "";
 
@@ -516,8 +516,8 @@ Rota: ${mapsLink}`;
                 <div className="flex flex-wrap gap-2">
                   {([
                     { value: "normal" as const, label: "Normal", desc: "40–45 min", icon: "🕐" },
-                    { value: "express" as const, label: "Express", desc: "Até 1h", icon: "⏱" },
-                    { value: "urgente" as const, label: "Urgente", desc: "Até 30 min", icon: "⚡" },
+                    { value: "express" as const, label: "Express", desc: "Até 25 min · +R$8", icon: "⏱" },
+                    { value: "urgente" as const, label: "Urgente", desc: "Até 15 min · +R$12", icon: "⚡" },
                   ]).map((opt) => (
                     <button
                       key={opt.value}

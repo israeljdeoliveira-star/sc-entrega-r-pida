@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -8,9 +8,15 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function Login() {
   const [submitting, setSubmitting] = useState(false);
-  const { signInWithGoogle } = useAuth();
+  const { signInWithGoogle, user, isAdmin, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (!loading && user && isAdmin) {
+      navigate("/admin", { replace: true });
+    }
+  }, [loading, user, isAdmin, navigate]);
 
   const handleGoogleLogin = async () => {
     setSubmitting(true);
