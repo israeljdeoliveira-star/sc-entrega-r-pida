@@ -23,7 +23,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminCheckComplete, setAdminCheckComplete] = useState(false);
   const [loading, setLoading] = useState(true);
-  const syncRequestRef = useRef(0);
+  const requestIdRef = useRef(0);
+  const initializedRef = useRef(false);
 
   const checkAdmin = async (userId: string): Promise<boolean> => {
     try {
@@ -31,12 +32,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         _user_id: userId,
         _role: "admin",
       });
-
       if (error) {
         console.error("checkAdmin error:", error.message);
         return false;
       }
-
       return !!data;
     } catch (e) {
       console.error("checkAdmin exception:", e);
@@ -47,37 +46,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    const syncAuthState = async (nextSession: Session | null) => {
-      const requestId = ++syncRequestRef.current;
-
-      setSession(nextSession);
-      setUser(nextSession?.user ?? null);
+    const syncSession = async (nextSession: Session | null) => {
+      const id = ++requestIdRef.current;
 
       if (!nextSession?.user) {
-        if (!mounted || requestId !== syncRequestRef.current) return;
+        if (!mounted || id !== requestIdRef.current) return;
+        setSession(null);
+        setUser(null);
         setIsAdmin(false);
         setAdminCheckComplete(true);
         setLoading(false);
         return;
       }
 
-      setAdminCheckComplete(false);
+      setSession(nextSession);
+      setUser(nextSession.user);
+
       const admin = await checkAdmin(nextSession.user.id);
 
-      if (!mounted || requestId !== syncRequestRef.current) return;
+      if (!mounted || id !== requestIdRef.current) return;
       setIsAdmin(admin);
       setAdminCheckComplete(true);
       setLoading(false);
     };
 
+    // 1. Listen for future auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, nextSession) => {
-        await syncAuthState(nextSession);
+        // Skip if this is the initial event and we haven't initialized yet
+        // (getSession below will handle the initial state)
+        if (!initializedRef.current) return;
+        await syncSession(nextSession);
       }
     );
 
+    // 2. Get current session (runs once)
     supabase.auth.getSession().then(async ({ data: { session: currentSession } }) => {
-      await syncAuthState(currentSession);
+      await syncSession(currentSession);
+      if (mounted) {
+        initializedRef.current = true;
+      }
     });
 
     return () => {
