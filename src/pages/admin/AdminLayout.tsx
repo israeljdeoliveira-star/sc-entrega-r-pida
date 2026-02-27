@@ -1,7 +1,7 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Building2, MapPin, Settings, LogOut, Truck, LayoutDashboard, Users, CarFront, Package, Zap, FileText, Code, ImageIcon } from "lucide-react";
+import { Building2, MapPin, Settings, LogOut, Truck, LayoutDashboard, Users, CarFront, Package, Zap, FileText, Code, ImageIcon, UsersRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -16,6 +16,7 @@ const navItems = [
   { to: "/admin/clients", label: "Clientes", icon: Users },
   { to: "/admin/external-codes", label: "Códigos Externos", icon: Code },
   { to: "/admin/service-photos", label: "Fotos Serviços", icon: ImageIcon },
+  { to: "/admin/collaborators", label: "Colaboradores", icon: UsersRound },
 ];
 
 export default function AdminLayout() {
