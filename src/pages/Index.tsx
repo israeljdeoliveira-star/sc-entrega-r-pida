@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Truck, Bike, Car, MapPin, ArrowRight, Settings, Globe, Shield, Zap, Clock } from "lucide-react";
+import { Truck, Bike, Car, MapPin, ArrowRight, Settings, Globe, Shield, Zap, Clock, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import HeroSection from "@/components/HeroSection";
 import type { Tables } from "@/integrations/supabase/types";
@@ -43,6 +43,11 @@ export default function Index() {
   const [result, setResult] = useState<FreightResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [simulationId, setSimulationId] = useState<string | null>(null);
+  const [clientName, setClientName] = useState("");
+  const [clientPhone, setClientPhone] = useState("");
+  const [orderConfirmed, setOrderConfirmed] = useState(false);
+  const [confirmingOrder, setConfirmingOrder] = useState(false);
   const { toast } = useToast();
 
   const scrollToSimulator = () => {
@@ -89,13 +94,46 @@ export default function Index() {
 
       const originName = mode === "sc" ? cities.find(c => c.id === originCity)?.name : nationalOrigin;
       const destName = mode === "sc" ? cities.find(c => c.id === destinationCity)?.name : nationalDestination;
-      logSimulation({ origin_city: originName || undefined, destination_city: destName || undefined, vehicle_type: mode === "national" ? "car" : vehicleType, mode, distance_km: data.distance_km, final_value: data.final_value });
+      const simId = await logSimulation({ origin_city: originName || undefined, destination_city: destName || undefined, vehicle_type: mode === "national" ? "car" : vehicleType, mode, distance_km: data.distance_km, final_value: data.final_value });
+      setSimulationId(simId || null);
+      setOrderConfirmed(false);
+      setClientName("");
+      setClientPhone("");
       trackEvent("simulation_completed", { mode, vehicle_type: mode === "national" ? "car" : vehicleType });
     } catch (err: any) {
       setError(err.message || "Erro ao calcular frete.");
       toast({ title: "Erro", description: err.message, variant: "destructive" });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleConfirmOrder = async () => {
+    if (!clientName.trim() || !clientPhone.trim()) {
+      toast({ title: "Preencha seu nome e telefone", variant: "destructive" });
+      return;
+    }
+    setConfirmingOrder(true);
+    try {
+      const { error } = await supabase.from("orders").insert([{
+        simulation_id: simulationId,
+        client_name: clientName.trim(),
+        client_phone: clientPhone.trim(),
+        origin_city: originCityName || null,
+        destination_city: destCityName || null,
+        distance_km: result?.distance_km || null,
+        final_value: result?.final_value || null,
+        vehicle_type: mode === "national" ? "car" : vehicleType,
+        status: "pending",
+      }]);
+      if (error) throw error;
+      setOrderConfirmed(true);
+      trackEvent("order_confirmed", { simulation_id: simulationId });
+      toast({ title: "Pedido confirmado!", description: "Entraremos em contato em breve." });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setConfirmingOrder(false);
     }
   };
 
@@ -285,6 +323,31 @@ export default function Index() {
                     <span className="text-lg font-bold">Valor do Frete</span>
                     <span className="text-3xl font-extrabold text-primary">R$ {result.final_value.toFixed(2)}</span>
                   </div>
+                  {/* Order Confirmation */}
+                  {!orderConfirmed ? (
+                    <div className="border-t pt-4 space-y-3">
+                      <p className="text-sm font-medium">Confirmar pedido:</p>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Seu nome</Label>
+                          <Input value={clientName} onChange={e => setClientName(e.target.value)} placeholder="Nome completo" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Telefone / WhatsApp</Label>
+                          <Input value={clientPhone} onChange={e => setClientPhone(e.target.value)} placeholder="(00) 00000-0000" />
+                        </div>
+                      </div>
+                      <Button onClick={handleConfirmOrder} disabled={confirmingOrder} className="w-full gap-2" size="lg">
+                        {confirmingOrder ? "Confirmando..." : <>Confirmar Pedido <CheckCircle2 className="h-5 w-5" /></>}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="border-t pt-4 text-center space-y-2">
+                      <CheckCircle2 className="h-10 w-10 text-primary mx-auto" />
+                      <p className="font-semibold text-lg">Pedido Confirmado!</p>
+                      <p className="text-sm text-muted-foreground">Entraremos em contato pelo WhatsApp em breve.</p>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>
