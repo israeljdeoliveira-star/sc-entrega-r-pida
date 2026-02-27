@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { trackEvent, logSimulation } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
@@ -9,10 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bike, Car, MapPin, ArrowRight, Settings, Globe, Shield, Zap, Clock, MessageCircle, Weight } from "lucide-react";
+import { Bike, Car, MapPin, ArrowRight, Globe, Shield, Zap, Clock, MessageCircle, Weight, CalendarDays } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import HeroSection from "@/components/HeroSection";
 import SocialProof from "@/components/SocialProof";
+import ServicesSection from "@/components/ServicesSection";
+import ThemeToggle from "@/components/ThemeToggle";
 import AddressAutocomplete, { type AddressSelection } from "@/components/AddressAutocomplete";
 import FreightMap from "@/components/FreightMap";
 import logoFrete from "@/assets/logo-frete-garca.png";
@@ -62,11 +63,19 @@ export default function Index() {
   const [natOriginNumber, setNatOriginNumber] = useState("");
   const [natDestNumber, setNatDestNumber] = useState("");
 
+  // Urgency & scheduling
+  const [deliveryWhen, setDeliveryWhen] = useState<"hoje" | "agendar">("hoje");
+  const [deliveryTime, setDeliveryTime] = useState("");
+  const [urgency, setUrgency] = useState<"express" | "normal" | "urgente">("normal");
+
   // Map & route state
   const [originCoords, setOriginCoords] = useState<[number, number] | null>(null);
   const [destCoords, setDestCoords] = useState<[number, number] | null>(null);
   const [routeDistance, setRouteDistance] = useState<number | null>(null);
   const [routeDuration, setRouteDuration] = useState<number | null>(null);
+
+  // WhatsApp number
+  const [whatsappNumber, setWhatsappNumber] = useState("5547999999999");
 
   // Result
   const [result, setResult] = useState<FreightResult | null>(null);
@@ -80,6 +89,8 @@ export default function Index() {
   useEffect(() => {
     supabase.from("cities").select("*").eq("is_active", true).order("name")
       .then(({ data }) => { if (data) setCities(data); });
+    supabase.from("site_settings").select("whatsapp_number").limit(1).single()
+      .then(({ data }) => { if (data) setWhatsappNumber(data.whatsapp_number); });
   }, []);
 
   const originCityName = mode === "sc"
@@ -89,7 +100,6 @@ export default function Index() {
     ? cities.find(c => c.id === destCityId)?.name || ""
     : natDestCity;
 
-  // Update coords when address is selected
   const handleOriginSelect = useCallback((sel: AddressSelection) => {
     setOriginAddress(sel);
     setOriginCoords([sel.lat, sel.lng]);
@@ -112,80 +122,46 @@ export default function Index() {
     setRouteDuration(durMin);
   }, []);
 
-  // Reset on mode change
   useEffect(() => {
-    setResult(null);
-    setError("");
-    setOriginCoords(null);
-    setDestCoords(null);
-    setRouteDistance(null);
-    setRouteDuration(null);
+    setResult(null); setError(""); setOriginCoords(null); setDestCoords(null);
+    setRouteDistance(null); setRouteDuration(null);
   }, [mode]);
 
-  // Reset address when city changes (SC)
   useEffect(() => { setOriginAddress(null); setOriginCoords(null); }, [originCityId]);
   useEffect(() => { setDestAddress(null); setDestCoords(null); }, [destCityId]);
 
-  // Auto-calculate when route is ready
   useEffect(() => {
-    if (routeDistance && routeDistance > 0) {
-      handleSimulate();
-    }
+    if (routeDistance && routeDistance > 0) handleSimulate();
   }, [routeDistance]);
 
   const handleSimulate = async () => {
-    if (!routeDistance) {
-      setError("Aguarde o cálculo da rota no mapa.");
-      return;
-    }
-    setError("");
-    setResult(null);
-    setLoading(true);
+    if (!routeDistance) { setError("Aguarde o cálculo da rota no mapa."); return; }
+    setError(""); setResult(null); setLoading(true);
 
     try {
       const body = mode === "sc"
-        ? {
-            mode: "sc",
-            origin_city_id: originCityId,
-            destination_city_id: destCityId,
-            vehicle_type: "moto",
-            distance_km: routeDistance,
-          }
-        : {
-            mode: "national",
-            origin_text: natOriginCity.trim(),
-            destination_text: natDestCity.trim(),
-            vehicle_type: "car",
-            distance_km: routeDistance,
-          };
+        ? { mode: "sc", origin_city_id: originCityId, destination_city_id: destCityId, vehicle_type: "moto", distance_km: routeDistance }
+        : { mode: "national", origin_text: natOriginCity.trim(), destination_text: natDestCity.trim(), vehicle_type: "car", distance_km: routeDistance };
 
       const { data, error: fnError } = await supabase.functions.invoke("calculate-freight", { body });
       if (fnError) throw fnError;
       if (data?.error) { setError(data.error); return; }
 
-      setResult({
-        ...data,
-        estimated_time_min: routeDuration ? Math.round(routeDuration) : undefined,
-      });
+      setResult({ ...data, estimated_time_min: routeDuration ? Math.round(routeDuration) : undefined });
 
       await logSimulation({
         origin_city: originCityName || undefined,
         destination_city: destCityName || undefined,
         vehicle_type: mode === "national" ? "car" : "moto",
-        mode,
-        distance_km: data.distance_km,
-        final_value: data.final_value,
+        mode, distance_km: data.distance_km, final_value: data.final_value,
       });
       trackEvent("simulation_completed", { mode, distance: routeDistance });
     } catch (err: any) {
       setError(err.message || "Erro ao calcular frete.");
       toast({ title: "Erro", description: err.message, variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
-  // WhatsApp message builder
   const buildWhatsAppUrl = () => {
     if (!result) return "#";
     const modalidade = mode === "sc" ? "MOTO" : "CARRO";
@@ -203,6 +179,8 @@ export default function Index() {
       ? `https://www.google.com/maps/dir/?api=1&origin=${originCoords[0]},${originCoords[1]}&destination=${destCoords[0]},${destCoords[1]}`
       : "";
 
+    const urgencyLabels = { express: "Express (1 hora)", normal: "Normal (combinar horário)", urgente: "Urgente (até 40 min)" };
+
     const msg = `Olá, gostaria de solicitar um frete:
 
 Modalidade: ${modalidade}
@@ -212,9 +190,11 @@ Distância: ${result.distance_km.toFixed(1)} km
 Tempo estimado: ${result.estimated_time_min || "—"} minutos
 Valor calculado: R$ ${result.final_value.toFixed(2)}
 ${weight ? `Peso estimado: ${weight}` : ""}
+Entrega: ${deliveryWhen === "hoje" ? "Hoje" : "Agendada"}${deliveryTime ? ` às ${deliveryTime}` : ""}
+Urgência: ${urgencyLabels[urgency]}
 Rota: ${mapsLink}`;
 
-    return `https://wa.me/5547999999999?text=${encodeURIComponent(msg)}`;
+    return `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(msg)}`;
   };
 
   const currentVehicleLabel = mode === "national" ? "Carro" : "Moto";
@@ -231,9 +211,7 @@ Rota: ${mapsLink}`;
             <Button variant="ghost" size="sm" onClick={scrollToSimulator} className="hidden sm:inline-flex">
               Simular
             </Button>
-            <Link to="/login">
-              <Button variant="outline" size="sm"><Settings className="mr-1.5 h-3.5 w-3.5" /> Admin</Button>
-            </Link>
+            <ThemeToggle />
           </nav>
         </div>
       </header>
@@ -286,6 +264,9 @@ Rota: ${mapsLink}`;
         </div>
       </section>
 
+      {/* Services */}
+      <ServicesSection />
+
       {/* Social Proof Reviews */}
       <SocialProof />
 
@@ -306,7 +287,6 @@ Rota: ${mapsLink}`;
 
                 {/* SC (MOTO) */}
                 <TabsContent value="sc" className="space-y-5 mt-5">
-                  {/* Origin */}
                   <div className="rounded-xl border bg-card p-4 space-y-3">
                     <div className="flex items-center gap-2 text-sm font-medium"><MapPin className="h-4 w-4 text-primary" /> Local de Coleta</div>
                     <div className="space-y-3">
@@ -319,12 +299,7 @@ Rota: ${mapsLink}`;
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-xs">Rua</Label>
-                        <AddressAutocomplete
-                          cityName={originCityName}
-                          disabled={!originCityId}
-                          placeholder="Digite o nome da rua..."
-                          onSelect={handleOriginSelect}
-                        />
+                        <AddressAutocomplete cityName={originCityName} disabled={!originCityId} placeholder="Digite o nome da rua..." onSelect={handleOriginSelect} />
                       </div>
                       <div className="grid gap-3 sm:grid-cols-3">
                         <div className="space-y-1.5">
@@ -339,7 +314,6 @@ Rota: ${mapsLink}`;
                     </div>
                   </div>
 
-                  {/* Destination */}
                   <div className="rounded-xl border bg-card p-4 space-y-3">
                     <div className="flex items-center gap-2 text-sm font-medium"><MapPin className="h-4 w-4 text-destructive" /> Destino</div>
                     <div className="space-y-3">
@@ -352,12 +326,7 @@ Rota: ${mapsLink}`;
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-xs">Rua</Label>
-                        <AddressAutocomplete
-                          cityName={destCityName}
-                          disabled={!destCityId}
-                          placeholder="Digite o nome da rua..."
-                          onSelect={handleDestSelect}
-                        />
+                        <AddressAutocomplete cityName={destCityName} disabled={!destCityId} placeholder="Digite o nome da rua..." onSelect={handleDestSelect} />
                       </div>
                       <div className="grid gap-3 sm:grid-cols-3">
                         <div className="space-y-1.5">
@@ -372,14 +341,9 @@ Rota: ${mapsLink}`;
                     </div>
                   </div>
 
-                  {/* Weight */}
                   <div className="rounded-xl border bg-card p-4 space-y-3">
                     <div className="flex items-center gap-2 text-sm font-medium"><Weight className="h-4 w-4 text-primary" /> Peso estimado</div>
-                    <Input
-                      value={weight}
-                      onChange={e => setWeight(e.target.value)}
-                      placeholder="Ex: 5kg - cesta de frutas, 15kg - caixa de frutas"
-                    />
+                    <Input value={weight} onChange={e => setWeight(e.target.value)} placeholder="Ex: 5kg - cesta de frutas, 15kg - caixa de frutas" />
                     <p className="text-xs text-muted-foreground">Informe o peso aproximado para melhor atendimento.</p>
                   </div>
                 </TabsContent>
@@ -395,13 +359,7 @@ Rota: ${mapsLink}`;
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-xs">Rua</Label>
-                        <AddressAutocomplete
-                          cityName={natOriginCity}
-                          state=""
-                          disabled={!natOriginCity.trim()}
-                          placeholder="Digite o nome da rua..."
-                          onSelect={handleNatOriginSelect}
-                        />
+                        <AddressAutocomplete cityName={natOriginCity} state="" disabled={!natOriginCity.trim()} placeholder="Digite o nome da rua..." onSelect={handleNatOriginSelect} />
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-xs">Número</Label>
@@ -418,13 +376,7 @@ Rota: ${mapsLink}`;
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-xs">Rua</Label>
-                        <AddressAutocomplete
-                          cityName={natDestCity}
-                          state=""
-                          disabled={!natDestCity.trim()}
-                          placeholder="Digite o nome da rua..."
-                          onSelect={handleNatDestSelect}
-                        />
+                        <AddressAutocomplete cityName={natDestCity} state="" disabled={!natDestCity.trim()} placeholder="Digite o nome da rua..." onSelect={handleNatDestSelect} />
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-xs">Número</Label>
@@ -435,13 +387,60 @@ Rota: ${mapsLink}`;
                 </TabsContent>
               </Tabs>
 
+              {/* Scheduling & Urgency */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-xl border bg-card p-4 space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <CalendarDays className="h-4 w-4 text-primary" /> Quando é a entrega?
+                  </div>
+                  <Select value={deliveryWhen} onValueChange={(v) => setDeliveryWhen(v as "hoje" | "agendar")}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="hoje">Hoje</SelectItem>
+                      <SelectItem value="agendar">Agendar</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {deliveryWhen === "hoje" && (
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Horário preferencial (opcional)</Label>
+                      <Input type="time" value={deliveryTime} onChange={e => setDeliveryTime(e.target.value)} />
+                    </div>
+                  )}
+                  {deliveryWhen === "agendar" && (
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Horário desejado</Label>
+                      <Input type="datetime-local" value={deliveryTime} onChange={e => setDeliveryTime(e.target.value)} />
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-xl border bg-card p-4 space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Zap className="h-4 w-4 text-primary" /> Urgência
+                  </div>
+                  <Select value={urgency} onValueChange={(v) => setUrgency(v as "express" | "normal" | "urgente")}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="express">Express</SelectItem>
+                      <SelectItem value="normal">Normal</SelectItem>
+                      <SelectItem value="urgente">Urgente</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {urgency === "express" && (
+                    <p className="text-xs text-primary font-medium">⏱ Tempo estimado: 1 hora</p>
+                  )}
+                  {urgency === "normal" && (
+                    <p className="text-xs text-muted-foreground">Combinar horário com o motorista</p>
+                  )}
+                  {urgency === "urgente" && (
+                    <p className="text-xs text-destructive font-medium">⚡ Em até 40 min + 5 min deslocamento até coleta</p>
+                  )}
+                </div>
+              </div>
+
               {/* Map */}
               {(originCoords || destCoords) && (
-                <FreightMap
-                  originCoords={originCoords}
-                  destCoords={destCoords}
-                  onRouteCalculated={handleRouteCalculated}
-                />
+                <FreightMap originCoords={originCoords} destCoords={destCoords} onRouteCalculated={handleRouteCalculated} />
               )}
 
               {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
@@ -482,10 +481,10 @@ Rota: ${mapsLink}`;
                     <span className="text-3xl font-extrabold text-primary">R$ {result.final_value.toFixed(2)}</span>
                   </div>
 
-                  {/* WhatsApp CTA */}
                   <Button
                     asChild
-                    className="w-full gap-2 py-6 text-base font-semibold bg-[hsl(142,70%,45%)] hover:bg-[hsl(142,70%,40%)] text-white"
+                    className="w-full gap-2 py-6 text-base font-semibold text-white"
+                    style={{ backgroundColor: "hsl(142, 70%, 45%)" }}
                     size="lg"
                   >
                     <a href={buildWhatsAppUrl()} target="_blank" rel="noopener noreferrer">
