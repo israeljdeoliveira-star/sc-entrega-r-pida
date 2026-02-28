@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { WhatsApp } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function WhatsAppFloat() {
@@ -31,7 +31,7 @@ export default function WhatsAppFloat() {
       style={{ backgroundColor: "hsl(142, 70%, 45%)" }}
       aria-label="Falar no WhatsApp"
     >
-      <WhatsApp className="h-7 w-7 text-white" />
+      <MessageCircle className="h-7 w-7 text-white" />
     </a>
   );
 }
