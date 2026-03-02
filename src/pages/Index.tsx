@@ -24,18 +24,7 @@ type City = Tables<"cities">;
 
 interface FreightResult {
   distance_km: number;
-  base_value: number;
-  origin_fee: number;
-  destination_fee: number;
-  fixed_fee?: number;
-  pedagios?: number;
-  taxa_retorno?: number;
-  min_value: number;
   final_value: number;
-  multiplier_applied?: number;
-  commission_percentage?: number;
-  driver_value?: number;
-  platform_value?: number;
   estimated_time_min?: number;
 }
 
@@ -227,7 +216,6 @@ export default function Index() {
       : "";
 
     const urgencyLabels = { normal: "Normal (40-45 min)", express: "Express (até 25 min · +R$8)", urgente: "Urgente (até 15 min · +R$12)" };
-
     const categoryLabel = category ? `\nCategoria: ${category}` : "";
 
     const msg = `Olá, gostaria de solicitar um frete:
@@ -237,8 +225,7 @@ Origem: ${originText}
 Destino: ${destText}
 Distância: ${result.distance_km.toFixed(1)} km
 Tempo estimado: ${result.estimated_time_min || "—"} minutos
-Valor base: R$ ${result.final_value.toFixed(2)}${urgencyFee > 0 ? `\nTaxa de urgência: +R$ ${urgencyFee.toFixed(2)}` : ""}
-Valor total: R$ ${totalValue.toFixed(2)}${categoryLabel}
+Valor: R$ ${totalValue.toFixed(2)}${categoryLabel}
 ${weight ? `Peso estimado: ${weight}` : ""}
 Entrega: ${deliveryWhen === "hoje" ? "Hoje" : "Agendada"}${deliveryTime ? ` às ${deliveryTime}` : ""}
 Urgência: ${urgencyLabels[urgency]}
@@ -567,20 +554,16 @@ Rota: ${mapsLink}`;
                     {result.estimated_time_min && (
                       <div className="flex justify-between"><span className="text-muted-foreground">Tempo estimado</span><span className="font-medium">{result.estimated_time_min} min</span></div>
                     )}
-                    <div className="flex justify-between"><span className="text-muted-foreground">Valor base</span><span>R$ {result.base_value.toFixed(2)}</span></div>
-                    {result.origin_fee > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Taxa bairro origem</span><span>R$ {result.origin_fee.toFixed(2)}</span></div>}
-                    {result.destination_fee > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Taxa bairro destino</span><span>R$ {result.destination_fee.toFixed(2)}</span></div>}
-                    {(result.fixed_fee ?? 0) > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Taxa fixa</span><span>R$ {(result.fixed_fee ?? 0).toFixed(2)}</span></div>}
-                    {(result.pedagios ?? 0) > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Pedágios</span><span>R$ {(result.pedagios ?? 0).toFixed(2)}</span></div>}
-                    {(result.taxa_retorno ?? 0) > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Taxa de retorno</span><span>R$ {(result.taxa_retorno ?? 0).toFixed(2)}</span></div>}
-                    {(result.multiplier_applied ?? 1) > 1 && <div className="flex justify-between"><span className="text-muted-foreground">Multiplicador</span><span className="font-medium text-primary">{(result.multiplier_applied ?? 1).toFixed(2)}x</span></div>}
                     {URGENCY_FEE[urgency] > 0 && (
                       <div className="flex justify-between"><span className="text-muted-foreground">Taxa de urgência ({urgency === "express" ? "Express" : "Urgente"})</span><span className="font-medium">+ R$ {URGENCY_FEE[urgency].toFixed(2)}</span></div>
                     )}
                   </div>
-                  <div className="border-t pt-4 flex justify-between items-center">
-                    <span className="text-lg font-bold">Valor do Frete</span>
+                  <div className="border-t pt-4 flex flex-col items-center gap-1">
+                    <span className="text-sm text-muted-foreground">Valor da entrega</span>
                     <span className="text-3xl font-extrabold text-primary">R$ {(result.final_value + URGENCY_FEE[urgency]).toFixed(2)}</span>
+                    <p className="text-xs text-muted-foreground text-center mt-1">
+                      Valor calculado com base na distância e condições da entrega.
+                    </p>
                   </div>
 
                   <Button

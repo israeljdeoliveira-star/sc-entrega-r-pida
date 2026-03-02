@@ -40,27 +40,36 @@ export type Database = {
       }
       cities: {
         Row: {
+          base_value: number
           created_at: string
+          density: string
           id: string
           is_active: boolean
           min_value: number
           name: string
+          observation: string | null
           state: string
         }
         Insert: {
+          base_value?: number
           created_at?: string
+          density?: string
           id?: string
           is_active?: boolean
           min_value?: number
           name: string
+          observation?: string | null
           state?: string
         }
         Update: {
+          base_value?: number
           created_at?: string
+          density?: string
           id?: string
           is_active?: boolean
           min_value?: number
           name?: string
+          observation?: string | null
           state?: string
         }
         Relationships: []
@@ -129,10 +138,30 @@ export type Database = {
         Row: {
           comissao_carro: number
           comissao_moto: number
+          enable_radius_limit: boolean
           fixed_fee: number
           id: string
+          long_distance_km: number
           margem_minima_carro: number
           margem_minima_moto: number
+          margin_base: number
+          margin_long_distance: number
+          margin_peak: number
+          margin_rain: number
+          margin_risk_high: number
+          max_radius_km: number
+          mult_car_night: number
+          mult_car_peak: number
+          mult_car_rain: number
+          mult_car_risk_high: number
+          mult_car_risk_medium: number
+          mult_car_severe: number
+          mult_moto_night: number
+          mult_moto_peak: number
+          mult_moto_rain: number
+          mult_moto_risk_high: number
+          mult_moto_risk_medium: number
+          mult_moto_severe: number
           multiplicador_carro: number
           multiplicador_moto: number
           national_min_value: number
@@ -147,10 +176,30 @@ export type Database = {
         Insert: {
           comissao_carro?: number
           comissao_moto?: number
+          enable_radius_limit?: boolean
           fixed_fee?: number
           id?: string
+          long_distance_km?: number
           margem_minima_carro?: number
           margem_minima_moto?: number
+          margin_base?: number
+          margin_long_distance?: number
+          margin_peak?: number
+          margin_rain?: number
+          margin_risk_high?: number
+          max_radius_km?: number
+          mult_car_night?: number
+          mult_car_peak?: number
+          mult_car_rain?: number
+          mult_car_risk_high?: number
+          mult_car_risk_medium?: number
+          mult_car_severe?: number
+          mult_moto_night?: number
+          mult_moto_peak?: number
+          mult_moto_rain?: number
+          mult_moto_risk_high?: number
+          mult_moto_risk_medium?: number
+          mult_moto_severe?: number
           multiplicador_carro?: number
           multiplicador_moto?: number
           national_min_value?: number
@@ -165,10 +214,30 @@ export type Database = {
         Update: {
           comissao_carro?: number
           comissao_moto?: number
+          enable_radius_limit?: boolean
           fixed_fee?: number
           id?: string
+          long_distance_km?: number
           margem_minima_carro?: number
           margem_minima_moto?: number
+          margin_base?: number
+          margin_long_distance?: number
+          margin_peak?: number
+          margin_rain?: number
+          margin_risk_high?: number
+          max_radius_km?: number
+          mult_car_night?: number
+          mult_car_peak?: number
+          mult_car_rain?: number
+          mult_car_risk_high?: number
+          mult_car_risk_medium?: number
+          mult_car_severe?: number
+          mult_moto_night?: number
+          mult_moto_peak?: number
+          mult_moto_rain?: number
+          mult_moto_risk_high?: number
+          mult_moto_risk_medium?: number
+          mult_moto_severe?: number
           multiplicador_carro?: number
           multiplicador_moto?: number
           national_min_value?: number
@@ -363,6 +432,7 @@ export type Database = {
       }
       simulations_log: {
         Row: {
+          config_snapshot: Json | null
           created_at: string
           destination_city: string | null
           destination_neighborhood: string | null
@@ -370,12 +440,15 @@ export type Database = {
           final_value: number | null
           id: string
           ip_hash: string | null
+          margin_applied: number | null
           mode: string
+          operational_value: number | null
           origin_city: string | null
           origin_neighborhood: string | null
           vehicle_type: string
         }
         Insert: {
+          config_snapshot?: Json | null
           created_at?: string
           destination_city?: string | null
           destination_neighborhood?: string | null
@@ -383,12 +456,15 @@ export type Database = {
           final_value?: number | null
           id?: string
           ip_hash?: string | null
+          margin_applied?: number | null
           mode?: string
+          operational_value?: number | null
           origin_city?: string | null
           origin_neighborhood?: string | null
           vehicle_type: string
         }
         Update: {
+          config_snapshot?: Json | null
           created_at?: string
           destination_city?: string | null
           destination_neighborhood?: string | null
@@ -396,7 +472,9 @@ export type Database = {
           final_value?: number | null
           id?: string
           ip_hash?: string | null
+          margin_applied?: number | null
           mode?: string
+          operational_value?: number | null
           origin_city?: string | null
           origin_neighborhood?: string | null
           vehicle_type?: string
