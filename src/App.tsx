@@ -14,7 +14,10 @@ import AdminLayout from "./pages/admin/AdminLayout";
 import DashboardPage from "./pages/admin/DashboardPage";
 import CitiesPage from "./pages/admin/CitiesPage";
 import NeighborhoodsPage from "./pages/admin/NeighborhoodsPage";
-import FreightSettingsPage from "./pages/admin/FreightSettingsPage";
+import KmSettingsPage from "./pages/admin/KmSettingsPage";
+import MultipliersPage from "./pages/admin/MultipliersPage";
+import SmartMarginPage from "./pages/admin/SmartMarginPage";
+import SimulationsLogPage from "./pages/admin/SimulationsLogPage";
 import DynamicRulesPage from "./pages/admin/DynamicRulesPage";
 import PricingLogPage from "./pages/admin/PricingLogPage";
 import DriversPage from "./pages/admin/DriversPage";
@@ -50,7 +53,10 @@ const App = () => (
                 <Route index element={<DashboardPage />} />
                 <Route path="cities" element={<CitiesPage />} />
                 <Route path="neighborhoods" element={<NeighborhoodsPage />} />
-                <Route path="settings" element={<FreightSettingsPage />} />
+                <Route path="km-settings" element={<KmSettingsPage />} />
+                <Route path="multipliers" element={<MultipliersPage />} />
+                <Route path="smart-margin" element={<SmartMarginPage />} />
+                <Route path="simulations-log" element={<SimulationsLogPage />} />
                 <Route path="rules" element={<DynamicRulesPage />} />
                 <Route path="pricing-log" element={<PricingLogPage />} />
                 <Route path="drivers" element={<DriversPage />} />
