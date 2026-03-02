@@ -1,54 +1,108 @@
 
 
-## Plano de Correção de Segurança
+## Plano: Reestruturação Completa do Motor de Precificação
 
-Corrigir os 8 achados do scan de segurança em 4 ações:
-
-### 1. Edge function: validação de input + rate limiting básico
-**Arquivo:** `supabase/functions/calculate-freight/index.ts`
-
-- Adicionar validação manual (sem zod, pois Deno edge functions não têm acesso ao node_modules):
-  - `mode` deve ser `"sc"` ou `"national"`
-  - `distance_km` deve ser número positivo, max 10000
-  - `vehicle_type` deve ser `"moto"` ou `"car"`
-  - UUIDs validados com regex `/^[0-9a-f]{8}-...-[0-9a-f]{12}$/i`
-  - Rejeitar NaN/Infinity após `Number()`
-- Retornar 400 com mensagem clara para inputs inválidos
-
-### 2. RLS: restringir inserts anônimos
-**Migração SQL:**
-
-- `simulations_log`: alterar policy "Insert simulations" de `WITH CHECK (true)` para `WITH CHECK (auth.uid() IS NOT NULL OR true)` — manter público mas adicionar throttle via trigger
-- Na prática, como simulações precisam ser públicas para o site funcionar, vamos manter o insert público mas adicionar uma function de rate-limit por IP (não possível com RLS puro). Alternativa pragmática: manter como está e documentar o risco aceito
-- `analytics_events`: mesmo caso — precisa ser público para tracking funcionar
-
-**Ação real:** Como ambas as tabelas precisam de insert público por design (simulações e analytics do site público), vamos:
-- Adicionar coluna `ip_hash` text nullable em `simulations_log` para rastreabilidade futura
-- Manter policies como estão (risco aceito por necessidade de negócio)
-
-### 3. RLS: proteger tabela drivers
-**Migração SQL:**
-
-A tabela `drivers` já tem RLS correto — admins podem gerenciar, drivers veem apenas próprio registro. O phone está protegido por RLS. Nenhuma ação necessária.
-
-### 4. Leaked Password Protection
-Não se aplica — o projeto usa apenas Google OAuth, sem senhas. Risco aceito.
-
-### 5. Hardcoded emails na migration
-As migrations são imutáveis (já executadas). O trigger `auto_assign_master_admin` já existe no banco. Para mitigar:
-- Criar nova migration que altera o trigger para ler emails de uma tabela `admin_config` em vez de hardcoded
-- Ou aceitar o risco (emails de admin não são segredo crítico, e o trigger apenas concede role admin)
-
-**Decisão pragmática:** Risco baixo, aceitar. Os emails já são conhecidos no código do `CollaboratorsPage.tsx`.
+Este é um projeto grande dividido em 5 fases. Vou detalhar cada uma.
 
 ---
 
-### Resumo de alterações reais
+### FASE 1 — Migrações de Banco de Dados
 
-| Ação | Arquivo | Tipo |
-|------|---------|------|
-| Validação de input | `supabase/functions/calculate-freight/index.ts` | Edge function |
-| Adicionar ip_hash para rastreabilidade | Migração SQL | DB |
+**Tabela `cities`** — adicionar colunas:
+- `base_value` numeric DEFAULT 0 (valor base da cidade)
+- `density` text DEFAULT 'media' (baixa/media/alta)
+- `observation` text nullable (observação interna)
 
-As demais findings são riscos aceitos por design (insert público necessário, OAuth sem senha, emails de admin conhecidos).
+**Tabela `freight_settings`** — adicionar colunas para:
+- Raio máximo: `max_radius_km` numeric DEFAULT 100, `enable_radius_limit` boolean DEFAULT false
+- Multiplicadores MOTO: `mult_moto_peak`, `mult_moto_night`, `mult_moto_rain`, `mult_moto_severe`, `mult_moto_risk_medium`, `mult_moto_risk_high` (todos numeric DEFAULT 1.0)
+- Multiplicadores CARRO: mesmos 6 campos com prefixo `mult_car_`
+- Margem Inteligente: `margin_base` numeric DEFAULT 15, `margin_peak` DEFAULT 0, `margin_rain` DEFAULT 0, `margin_risk_high` DEFAULT 0, `margin_long_distance` DEFAULT 0, `long_distance_km` DEFAULT 50
+
+**Tabela `simulations_log`** — adicionar:
+- `operational_value` numeric nullable
+- `margin_applied` numeric nullable
+- `config_snapshot` jsonb nullable
+
+---
+
+### FASE 2 — Admin: Reestruturar Páginas
+
+**Novo menu lateral** no AdminLayout com seção "Configurações de Frete" agrupando:
+
+1. **CitiesPage** — refatorar com novos campos (base_value, density, observation). Adicionar validação visual de cidade ativa/inativa.
+
+2. **KmSettingsPage** (nova) — Valor por KM Moto, Valor por KM Carro, Raio máximo, Toggle limite de raio. Cada campo com texto explicativo visível abaixo.
+
+3. **MultipliersPage** (nova) — Tabs MOTO / CARRO. Cada aba com 6 multiplicadores (pico, noturno, chuva, clima severo, risco médio, risco alto). Textos explicativos em cada campo.
+
+4. **SmartMarginPage** (nova) — Margem base (%), adicionais por condição, distância considerada longa. Textos explicativos didáticos.
+
+5. **SimulationsLogPage** (nova) — Log de simulações com cidade, veículo, distância, valor operacional, margem, valor final, data, config utilizada. Somente visualização admin.
+
+---
+
+### FASE 3 — Edge Function: Novo Motor de Cálculo
+
+Reescrever `calculate-freight/index.ts`:
+
+```text
+valorOperacional = 
+  cidadeBaseValue + (distanciaKm × valorPorKm) × multiplicadoresCombinados
+
+multiplicadoresCombinados = 
+  densityMultiplier × peakHour × night × rain × severe × riskArea
+
+margemTotal = 
+  margemBase + (condições ativas: peak + rain + risk + longDistance)
+
+valorFinal = valorOperacional × (1 + margemTotal/100)
+```
+
+- Validar cidade cadastrada e ativa
+- Validar raio máximo se habilitado
+- Separar totalmente lógica MOTO vs CARRO
+- Gravar snapshot da config no simulations_log
+- Retornar ao cliente APENAS: `final_value`, `distance_km`, `estimated_time_min`
+
+---
+
+### FASE 4 — Cliente: Simplificar Resultado
+
+**Index.tsx** — No bloco de resultado, mostrar apenas:
+- "Valor da entrega: R$ XX,XX"
+- "Valor calculado com base na distância e condições da entrega."
+- Distância e tempo estimado
+- Botão WhatsApp
+
+Remover: valor base, taxas de bairro, taxa fixa, pedágios, multiplicador, comissão — tudo invisível ao cliente.
+
+Adicionar validação: se cidade não atendida, mostrar "No momento não atendemos essa cidade." e bloquear simulação.
+
+---
+
+### FASE 5 — Validações e Logging
+
+- Validar que bairro pertence à cidade selecionada (já existe parcialmente)
+- Validar cidade ativa antes de permitir simulação
+- Log completo no `simulations_log` com valor operacional, margem e config snapshot
+- Registrar alterações de todas as novas configurações no `pricing_change_log`
+
+---
+
+### Resumo de Arquivos
+
+| Ação | Arquivo |
+|------|---------|
+| Migração SQL | 3 ALTER TABLE (cities, freight_settings, simulations_log) |
+| Refatorar | `src/pages/admin/CitiesPage.tsx` |
+| Criar | `src/pages/admin/KmSettingsPage.tsx` |
+| Criar | `src/pages/admin/MultipliersPage.tsx` |
+| Criar | `src/pages/admin/SmartMarginPage.tsx` |
+| Criar | `src/pages/admin/SimulationsLogPage.tsx` |
+| Refatorar | `src/pages/admin/AdminLayout.tsx` (novo menu) |
+| Reescrever | `supabase/functions/calculate-freight/index.ts` |
+| Refatorar | `src/pages/Index.tsx` (resultado simplificado + validações) |
+| Refatorar | `src/App.tsx` (novas rotas) |
+| Remover/deprecar | `src/pages/admin/FreightSettingsPage.tsx` (substituída pelas novas) |
 
