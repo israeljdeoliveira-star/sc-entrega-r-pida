@@ -18,6 +18,7 @@ import KmSettingsPage from "./pages/admin/KmSettingsPage";
 import MultipliersPage from "./pages/admin/MultipliersPage";
 import SmartMarginPage from "./pages/admin/SmartMarginPage";
 import SimulationsLogPage from "./pages/admin/SimulationsLogPage";
+import CarAdditionalsPage from "./pages/admin/CarAdditionalsPage";
 import DynamicRulesPage from "./pages/admin/DynamicRulesPage";
 import PricingLogPage from "./pages/admin/PricingLogPage";
 import DriversPage from "./pages/admin/DriversPage";
@@ -57,6 +58,7 @@ const App = () => (
                 <Route path="multipliers" element={<MultipliersPage />} />
                 <Route path="smart-margin" element={<SmartMarginPage />} />
                 <Route path="simulations-log" element={<SimulationsLogPage />} />
+                <Route path="car-additionals" element={<CarAdditionalsPage />} />
                 <Route path="rules" element={<DynamicRulesPage />} />
                 <Route path="pricing-log" element={<PricingLogPage />} />
                 <Route path="drivers" element={<DriversPage />} />

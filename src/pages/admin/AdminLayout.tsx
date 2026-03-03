@@ -18,6 +18,7 @@ const freteNav = [
   { to: "/admin/km-settings", label: "Quilometragem", icon: Ruler },
   { to: "/admin/multipliers", label: "Multiplicadores", icon: TrendingUp },
   { to: "/admin/smart-margin", label: "Margem Inteligente", icon: Percent },
+  { to: "/admin/car-additionals", label: "Adicionais Carro", icon: CarFront },
   { to: "/admin/simulations-log", label: "Log de Simulações", icon: Activity },
   { to: "/admin/rules", label: "Regras Dinâmicas", icon: Zap },
   { to: "/admin/pricing-log", label: "Log de Alterações", icon: FileText },

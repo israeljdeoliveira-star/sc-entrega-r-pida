@@ -136,6 +136,12 @@ export type Database = {
       }
       freight_settings: {
         Row: {
+          car_fee_bubble_wrap: number
+          car_fee_fragile: number
+          car_fee_helper: number
+          car_fee_no_elevator: number
+          car_fee_stairs: number
+          car_min_value: number
           comissao_carro: number
           comissao_moto: number
           enable_radius_limit: boolean
@@ -162,6 +168,7 @@ export type Database = {
           mult_moto_risk_high: number
           mult_moto_risk_medium: number
           mult_moto_severe: number
+          multi_trip_discount_pct: number
           multiplicador_carro: number
           multiplicador_moto: number
           national_min_value: number
@@ -174,6 +181,12 @@ export type Database = {
           valor_base_nacional: number
         }
         Insert: {
+          car_fee_bubble_wrap?: number
+          car_fee_fragile?: number
+          car_fee_helper?: number
+          car_fee_no_elevator?: number
+          car_fee_stairs?: number
+          car_min_value?: number
           comissao_carro?: number
           comissao_moto?: number
           enable_radius_limit?: boolean
@@ -200,6 +213,7 @@ export type Database = {
           mult_moto_risk_high?: number
           mult_moto_risk_medium?: number
           mult_moto_severe?: number
+          multi_trip_discount_pct?: number
           multiplicador_carro?: number
           multiplicador_moto?: number
           national_min_value?: number
@@ -212,6 +226,12 @@ export type Database = {
           valor_base_nacional?: number
         }
         Update: {
+          car_fee_bubble_wrap?: number
+          car_fee_fragile?: number
+          car_fee_helper?: number
+          car_fee_no_elevator?: number
+          car_fee_stairs?: number
+          car_min_value?: number
           comissao_carro?: number
           comissao_moto?: number
           enable_radius_limit?: boolean
@@ -238,6 +258,7 @@ export type Database = {
           mult_moto_risk_high?: number
           mult_moto_risk_medium?: number
           mult_moto_severe?: number
+          multi_trip_discount_pct?: number
           multiplicador_carro?: number
           multiplicador_moto?: number
           national_min_value?: number
