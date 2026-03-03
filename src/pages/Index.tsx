@@ -8,7 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bike, Car, MapPin, ArrowRight, Globe, Shield, Zap, Clock, MessageCircle, CalendarDays, Package } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Bike, Car, MapPin, ArrowRight, Globe, Shield, Zap, Clock, MessageCircle, CalendarDays, Package, AlertTriangle, Truck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import HeroSection from "@/components/HeroSection";
 import SocialProof from "@/components/SocialProof";
@@ -38,7 +40,7 @@ const WEIGHT_OPTIONS = [
   { value: "20 kg", label: "20 kg — 🧳 mala grande" },
 ];
 
-const URGENCY_FEE: Record<string, number> = { normal: 0, express: 8, urgente: 12 };
+const WHATSAPP_FIXED = "5547988042341";
 
 export default function Index() {
   const simulatorRef = useRef<HTMLDivElement>(null);
@@ -53,11 +55,7 @@ export default function Index() {
   useEffect(() => {
     const handleScroll = () => {
       const currentY = window.scrollY;
-      if (currentY > lastScrollY.current && currentY > 80) {
-        setNavVisible(false);
-      } else {
-        setNavVisible(true);
-      }
+      setNavVisible(currentY <= lastScrollY.current || currentY <= 80);
       lastScrollY.current = currentY;
     };
     window.addEventListener("scroll", handleScroll, { passive: true });
@@ -71,34 +69,33 @@ export default function Index() {
   const [destAddress, setDestAddress] = useState<AddressSelection | null>(null);
   const [originNumber, setOriginNumber] = useState("");
   const [destNumber, setDestNumber] = useState("");
-  const [originComplement, setOriginComplement] = useState("");
-  const [destComplement, setDestComplement] = useState("");
   const [weight, setWeight] = useState("");
   const [category, setCategory] = useState("");
 
-  // National mode state
+  // National (car) mode state
   const [natOriginCity, setNatOriginCity] = useState("");
   const [natDestCity, setNatDestCity] = useState("");
   const [natOriginAddress, setNatOriginAddress] = useState<AddressSelection | null>(null);
   const [natDestAddress, setNatDestAddress] = useState<AddressSelection | null>(null);
   const [natOriginNumber, setNatOriginNumber] = useState("");
   const [natDestNumber, setNatDestNumber] = useState("");
-  const [natOriginComplement, setNatOriginComplement] = useState("");
-  const [natDestComplement, setNatDestComplement] = useState("");
 
-  // Urgency & scheduling
-  const [deliveryWhen, setDeliveryWhen] = useState<"hoje" | "agendar">("hoje");
-  const [deliveryTime, setDeliveryTime] = useState("");
-  const [urgency, setUrgency] = useState<"express" | "normal" | "urgente">("normal");
+  // Car-specific fields
+  const [carItemDescription, setCarItemDescription] = useState("");
+  const [carItemDetails, setCarItemDetails] = useState("");
+  const [carNeedHelper, setCarNeedHelper] = useState(false);
+  const [carIsApartment, setCarIsApartment] = useState(false);
+  const [carHasElevator, setCarHasElevator] = useState(false);
+  const [carNeedStairs, setCarNeedStairs] = useState(false);
+  const [carHasFragile, setCarHasFragile] = useState(false);
+  const [carNeedBubbleWrap, setCarNeedBubbleWrap] = useState(false);
+  const [carMultiTrip, setCarMultiTrip] = useState(false);
 
   // Map & route state
   const [originCoords, setOriginCoords] = useState<[number, number] | null>(null);
   const [destCoords, setDestCoords] = useState<[number, number] | null>(null);
   const [routeDistance, setRouteDistance] = useState<number | null>(null);
   const [routeDuration, setRouteDuration] = useState<number | null>(null);
-
-  // WhatsApp number
-  const [whatsappNumber, setWhatsappNumber] = useState("5547999999999");
 
   // Result
   const [result, setResult] = useState<FreightResult | null>(null);
@@ -108,71 +105,55 @@ export default function Index() {
   const scrollToSimulator = () => {
     simulatorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
-
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  const scrollToSection = (id: string) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
-  };
+  const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
+  const scrollToSection = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
 
   useEffect(() => {
     supabase.from("cities").select("*").eq("is_active", true).order("name")
       .then(({ data }) => { if (data) setCities(data); });
-    supabase.from("site_settings").select("whatsapp_number").limit(1).single()
-      .then(({ data }) => { if (data) setWhatsappNumber(data.whatsapp_number); });
   }, []);
 
-  const originCityName = mode === "sc"
-    ? cities.find(c => c.id === originCityId)?.name || ""
-    : natOriginCity;
-  const destCityName = mode === "sc"
-    ? cities.find(c => c.id === destCityId)?.name || ""
-    : natDestCity;
+  const originCityName = mode === "sc" ? cities.find(c => c.id === originCityId)?.name || "" : natOriginCity;
+  const destCityName = mode === "sc" ? cities.find(c => c.id === destCityId)?.name || "" : natDestCity;
 
-  const handleOriginSelect = useCallback((sel: AddressSelection) => {
-    setOriginAddress(sel);
-    setOriginCoords([sel.lat, sel.lng]);
-  }, []);
-  const handleDestSelect = useCallback((sel: AddressSelection) => {
-    setDestAddress(sel);
-    setDestCoords([sel.lat, sel.lng]);
-  }, []);
-  const handleNatOriginSelect = useCallback((sel: AddressSelection) => {
-    setNatOriginAddress(sel);
-    setOriginCoords([sel.lat, sel.lng]);
-  }, []);
-  const handleNatDestSelect = useCallback((sel: AddressSelection) => {
-    setNatDestAddress(sel);
-    setDestCoords([sel.lat, sel.lng]);
-  }, []);
+  const handleOriginSelect = useCallback((sel: AddressSelection) => { setOriginAddress(sel); setOriginCoords([sel.lat, sel.lng]); }, []);
+  const handleDestSelect = useCallback((sel: AddressSelection) => { setDestAddress(sel); setDestCoords([sel.lat, sel.lng]); }, []);
+  const handleNatOriginSelect = useCallback((sel: AddressSelection) => { setNatOriginAddress(sel); setOriginCoords([sel.lat, sel.lng]); }, []);
+  const handleNatDestSelect = useCallback((sel: AddressSelection) => { setNatDestAddress(sel); setDestCoords([sel.lat, sel.lng]); }, []);
+  const handleRouteCalculated = useCallback((distKm: number, durMin: number) => { setRouteDistance(distKm); setRouteDuration(durMin); }, []);
 
-  const handleRouteCalculated = useCallback((distKm: number, durMin: number) => {
-    setRouteDistance(distKm);
-    setRouteDuration(durMin);
-  }, []);
-
-  useEffect(() => {
-    setResult(null); setError(""); setOriginCoords(null); setDestCoords(null);
-    setRouteDistance(null); setRouteDuration(null);
-  }, [mode]);
-
+  useEffect(() => { setResult(null); setError(""); setOriginCoords(null); setDestCoords(null); setRouteDistance(null); setRouteDuration(null); }, [mode]);
   useEffect(() => { setOriginAddress(null); setOriginCoords(null); }, [originCityId]);
   useEffect(() => { setDestAddress(null); setDestCoords(null); }, [destCityId]);
-
-  useEffect(() => {
-    if (routeDistance && routeDistance > 0) handleSimulate();
-  }, [routeDistance]);
+  useEffect(() => { if (routeDistance && routeDistance > 0) handleSimulate(); }, [routeDistance]);
 
   const handleSimulate = async () => {
     if (!routeDistance) { setError("Aguarde o cálculo da rota no mapa."); return; }
+
+    // Car validation
+    if (mode === "national") {
+      if (!carItemDescription.trim()) { setError("Informe o que será transportado."); return; }
+      if (!carItemDetails.trim()) { setError("Descreva os itens a serem transportados."); return; }
+    }
+
     setError(""); setResult(null); setLoading(true);
 
     try {
+      const carAdditionals = mode === "national" ? {
+        helper: carNeedHelper,
+        stairs: carNeedStairs,
+        no_elevator: carIsApartment && !carHasElevator,
+        bubble_wrap: carNeedBubbleWrap,
+        fragile: carHasFragile,
+      } : {};
+
       const body = mode === "sc"
         ? { mode: "sc", origin_city_id: originCityId, destination_city_id: destCityId, vehicle_type: "moto", distance_km: routeDistance }
-        : { mode: "national", origin_text: natOriginCity.trim(), destination_text: natDestCity.trim(), vehicle_type: "car", distance_km: routeDistance };
+        : {
+            mode: "national", origin_text: natOriginCity.trim(), destination_text: natDestCity.trim(),
+            vehicle_type: "car", distance_km: routeDistance,
+            car_additionals: carAdditionals, multi_trip: carMultiTrip,
+          };
 
       const { data, error: fnError } = await supabase.functions.invoke("calculate-freight", { body });
       if (fnError) throw fnError;
@@ -195,76 +176,71 @@ export default function Index() {
 
   const buildWhatsAppUrl = () => {
     if (!result) return "#";
-    const modalidade = mode === "sc" ? "MOTOBOY" : "CARRO/CAMIONETE";
+    const tipo = mode === "sc" ? "Moto" : "Carro";
     const oAddr = mode === "sc" ? originAddress : natOriginAddress;
     const dAddr = mode === "sc" ? destAddress : natDestAddress;
     const oNum = mode === "sc" ? originNumber : natOriginNumber;
     const dNum = mode === "sc" ? destNumber : natDestNumber;
-    const oCity = originCityName;
-    const dCity = destCityName;
 
-    const oComp = mode === "sc" ? originComplement : natOriginComplement;
-    const dComp = mode === "sc" ? destComplement : natDestComplement;
-    const urgencyFee = URGENCY_FEE[urgency] || 0;
-    const totalValue = result.final_value + urgencyFee;
+    const originText = `${oAddr?.street || ""}${oNum ? `, Nº ${oNum}` : ""} - ${oAddr?.neighborhood || ""} - ${originCityName}`;
+    const destText = `${dAddr?.street || ""}${dNum ? `, Nº ${dNum}` : ""} - ${dAddr?.neighborhood || ""} - ${destCityName}`;
 
-    const originText = `${oAddr?.street || ""}${oNum ? `, Nº ${oNum}` : ""}${oComp ? `, ${oComp}` : ""} - ${oAddr?.neighborhood || ""} - ${oCity}`;
-    const destText = `${dAddr?.street || ""}${dNum ? `, Nº ${dNum}` : ""}${dComp ? `, ${dComp}` : ""} - ${dAddr?.neighborhood || ""} - ${dCity}`;
+    const msg = `🚛 FRETE GARÇA — SIMULAÇÃO
 
-    const mapsLink = originCoords && destCoords
-      ? `https://www.google.com/maps/dir/?api=1&origin=${originCoords[0]},${originCoords[1]}&destination=${destCoords[0]},${destCoords[1]}`
-      : "";
+Olá! 👋
 
-    const urgencyLabels = { normal: "Normal (40-45 min)", express: "Express (até 25 min · +R$8)", urgente: "Urgente (até 15 min · +R$12)" };
-    const categoryLabel = category ? `\nCategoria: ${category}` : "";
+Segue a simulação do seu frete:
 
-    const msg = `Olá, gostaria de solicitar um frete:
+📍 Coleta: ${originText}
+📍 Entrega: ${destText}
+🚚 Tipo: ${tipo}
+💰 Valor estimado: R$ ${result.final_value.toFixed(2)}
 
-Modalidade: ${modalidade}
-Origem: ${originText}
-Destino: ${destText}
-Distância: ${result.distance_km.toFixed(1)} km
-Tempo estimado: ${result.estimated_time_min || "—"} minutos
-Valor: R$ ${totalValue.toFixed(2)}${categoryLabel}
-${weight ? `Peso estimado: ${weight}` : ""}
-Entrega: ${deliveryWhen === "hoje" ? "Hoje" : "Agendada"}${deliveryTime ? ` às ${deliveryTime}` : ""}
-Urgência: ${urgencyLabels[urgency]}
-Rota: ${mapsLink}`;
+⚠️ Esta é uma simulação automática.
+O valor pode sofrer alteração após conferência de detalhes.
 
-    return `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(msg)}`;
+📦 Itens frágeis devem estar bem embalados.
+Realizamos apenas o transporte.
+${carMultiTrip ? "\nSe precisar de mais de uma viagem, aplicamos desconto conforme informado." : ""}
+Estamos à disposição! 😊`;
+
+    return `https://wa.me/${WHATSAPP_FIXED}?text=${encodeURIComponent(msg)}`;
   };
 
-  const currentVehicleLabel = mode === "national" ? "Carro/Camionete" : "Motoboy";
+  // --- Render helpers ---
+  const AddressBlock = ({ label, icon, citySelect, addressComp, numberVal, setNumber }: {
+    label: string; icon: React.ReactNode; citySelect: React.ReactNode; addressComp: React.ReactNode;
+    numberVal: string; setNumber: (v: string) => void;
+  }) => (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 text-sm font-semibold text-foreground">{icon} {label}</div>
+      {citySelect}
+      <div className="space-y-1">
+        <Label className="text-sm">Rua + Número</Label>
+        {addressComp}
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-background" id="top">
-      {/* Tagline Top Bar — always visible */}
+      {/* Tagline */}
       <div className="bg-primary text-primary-foreground text-center text-xs sm:text-sm py-1.5 font-medium">
         📍 Somos de Itapema — fretes via motoboy a partir de <span className="font-bold">R$ 15,00</span>
       </div>
 
-      {/* Navbar — auto-hide on scroll down */}
-      <header
-        className="sticky top-0 z-50 border-b bg-card/80 backdrop-blur-md transition-transform duration-300"
-        style={{ transform: navVisible ? "translateY(0)" : "translateY(-100%)" }}
-      >
+      {/* Navbar */}
+      <header className="sticky top-0 z-50 border-b bg-card/80 backdrop-blur-md transition-transform duration-300"
+        style={{ transform: navVisible ? "translateY(0)" : "translateY(-100%)" }}>
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-2">
           <button onClick={scrollToTop} className="flex items-center gap-2.5 cursor-pointer bg-transparent border-0 p-0">
             <img src={logoFrete} alt="Frete Garça" className="h-12 object-contain" />
           </button>
           <nav className="flex items-center gap-1">
-            <Button variant="ghost" size="sm" onClick={() => scrollToSection("top")} className="hidden md:inline-flex text-xs">
-              Início
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => scrollToSection("simulator")} className="hidden sm:inline-flex text-xs">
-              Simulador
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => scrollToSection("services")} className="hidden md:inline-flex text-xs">
-              Serviços
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => scrollToSection("reviews")} className="hidden md:inline-flex text-xs">
-              Avaliações
-            </Button>
+            <Button variant="ghost" size="sm" onClick={() => scrollToSection("top")} className="hidden md:inline-flex text-xs">Início</Button>
+            <Button variant="ghost" size="sm" onClick={() => scrollToSection("simulator")} className="hidden sm:inline-flex text-xs">Simulador</Button>
+            <Button variant="ghost" size="sm" onClick={() => scrollToSection("services")} className="hidden md:inline-flex text-xs">Serviços</Button>
+            <Button variant="ghost" size="sm" onClick={() => scrollToSection("reviews")} className="hidden md:inline-flex text-xs">Avaliações</Button>
             <ThemeToggle />
           </nav>
         </div>
@@ -272,15 +248,11 @@ Rota: ${mapsLink}`;
 
       <HeroSection onSimulateClick={scrollToSimulator} />
 
-      {/* Social Proof Bar — single line, subtle, no "24/7 Suporte" */}
+      {/* Social Proof Bar */}
       <section className="border-b bg-card/60">
         <div className="mx-auto max-w-6xl px-4 py-2.5">
           <div className="flex items-center justify-around divide-x divide-border">
-            {[
-              { value: "2.500+", label: "Entregas" },
-              { value: "98%", label: "Satisfação" },
-              { value: "< 5min", label: "Cotação" },
-            ].map((stat) => (
+            {[{ value: "2.500+", label: "Entregas" }, { value: "98%", label: "Satisfação" }, { value: "< 5min", label: "Cotação" }].map(stat => (
               <div key={stat.label} className="flex-1 text-center px-2">
                 <span className="text-sm sm:text-base font-semibold text-primary">{stat.value}</span>
                 <span className="text-[10px] sm:text-[11px] text-muted-foreground ml-1">{stat.label}</span>
@@ -290,7 +262,7 @@ Rota: ${mapsLink}`;
         </div>
       </section>
 
-      {/* Simulator Section */}
+      {/* Simulator */}
       <section ref={simulatorRef} className="py-8 sm:py-14 bg-gradient-to-br from-blue-50/50 via-background to-blue-100/30 dark:from-blue-950/30 dark:via-background dark:to-blue-900/20" id="simulator">
         <div className="mx-auto max-w-3xl px-4 sm:px-6">
           <Card className="bg-blue-50/60 dark:bg-blue-950/40 backdrop-blur-xl border border-blue-200/50 dark:border-blue-400/20 shadow-[0_8px_32px_rgba(59,130,246,0.15)] ring-1 ring-blue-100/30 dark:ring-blue-500/10">
@@ -298,20 +270,17 @@ Rota: ${mapsLink}`;
               <CardTitle className="text-xl sm:text-2xl font-bold">Simule seu frete</CardTitle>
               <CardDescription className="text-sm">Calcule o valor em segundos</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6 pt-4 px-4 sm:px-8">
+            <CardContent className="space-y-5 pt-4 px-4 sm:px-8">
               <Tabs value={mode} onValueChange={(v) => setMode(v as "sc" | "national")}>
                 <TabsList className="w-full">
                   <TabsTrigger value="sc" className="flex-1 gap-1.5"><Bike className="h-4 w-4" /> Motoboy</TabsTrigger>
-                  <TabsTrigger value="national" className="flex-1 gap-1.5"><Car className="h-4 w-4" /> Carro / Camionete</TabsTrigger>
+                  <TabsTrigger value="national" className="flex-1 gap-1.5"><Car className="h-4 w-4" /> Carro</TabsTrigger>
                 </TabsList>
 
-                {/* SC (MOTOBOY) */}
-                <TabsContent value="sc" className="space-y-6 mt-5">
-                  {/* Coleta */}
+                {/* === MOTOBOY === */}
+                <TabsContent value="sc" className="space-y-5 mt-5">
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                      <MapPin className="h-4 w-4 text-primary" /> Local de Coleta
-                    </div>
+                    <div className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-4 w-4 text-primary" /> Local de Coleta</div>
                     <div className="space-y-2">
                       <Label className="text-sm">Cidade</Label>
                       <Select value={originCityId} onValueChange={setOriginCityId}>
@@ -319,29 +288,16 @@ Rota: ${mapsLink}`;
                         <SelectContent>{cities.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-1">
                       <Label className="text-sm">Rua</Label>
-                      <AddressAutocomplete cityName={originCityName} disabled={!originCityId} placeholder="Digite o nome da rua..." onSelect={handleOriginSelect} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-2">
-                        <Label className="text-sm">Número</Label>
-                        <Input value={originNumber} onChange={e => setOriginNumber(e.target.value)} placeholder="Nº" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm">Complemento <span className="text-muted-foreground font-normal">(opcional)</span></Label>
-                        <Input value={originComplement} onChange={e => setOriginComplement(e.target.value)} placeholder="Apt, Sala..." />
-                      </div>
+                      <AddressAutocomplete cityName={originCityName} disabled={!originCityId} placeholder="Rua + número..." onSelect={handleOriginSelect} />
                     </div>
                   </div>
 
                   <div className="border-t border-border" />
 
-                  {/* Destino */}
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                      <MapPin className="h-4 w-4 text-destructive" /> Destino
-                    </div>
+                    <div className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-4 w-4 text-destructive" /> Destino</div>
                     <div className="space-y-2">
                       <Label className="text-sm">Cidade</Label>
                       <Select value={destCityId} onValueChange={setDestCityId}>
@@ -349,180 +305,110 @@ Rota: ${mapsLink}`;
                         <SelectContent>{cities.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-1">
                       <Label className="text-sm">Rua</Label>
-                      <AddressAutocomplete cityName={destCityName} disabled={!destCityId} placeholder="Digite o nome da rua..." onSelect={handleDestSelect} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-2">
-                        <Label className="text-sm">Número</Label>
-                        <Input value={destNumber} onChange={e => setDestNumber(e.target.value)} placeholder="Nº" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm">Complemento <span className="text-muted-foreground font-normal">(opcional)</span></Label>
-                        <Input value={destComplement} onChange={e => setDestComplement(e.target.value)} placeholder="Apt, Sala..." />
-                      </div>
+                      <AddressAutocomplete cityName={destCityName} disabled={!destCityId} placeholder="Rua + número..." onSelect={handleDestSelect} />
                     </div>
                   </div>
 
                   <div className="border-t border-border" />
 
-                  {/* Category & Weight — flat layout */}
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                      <Package className="h-4 w-4 text-primary" /> Detalhes da carga
+                    <div className="flex items-center gap-2 text-sm font-semibold"><Package className="h-4 w-4 text-primary" /> Detalhes da carga</div>
+                    <div className="space-y-2">
+                      <Label className="text-sm">Categoria</Label>
+                      <Select value={category} onValueChange={setCategory}>
+                        <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>
+                          {["Eletrônicos","Documentos","Alimentos","Chaves","Pacotes","Outros"].map(c =>
+                            <SelectItem key={c} value={c}>{c}</SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
                     </div>
-                    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label className="text-sm">Categoria</Label>
-                        <Select value={category} onValueChange={setCategory}>
-                          <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Eletrônicos">Eletrônicos</SelectItem>
-                            <SelectItem value="Documentos">Documentos</SelectItem>
-                            <SelectItem value="Alimentos">Alimentos</SelectItem>
-                            <SelectItem value="Chaves">Chaves</SelectItem>
-                            <SelectItem value="Pacotes">Pacotes</SelectItem>
-                            <SelectItem value="Outros">Outros</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm">Peso estimado</Label>
-                        <Select value={weight} onValueChange={setWeight}>
-                          <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                          <SelectContent>
-                            {WEIGHT_OPTIONS.map(w => (
-                              <SelectItem key={w.value} value={w.value}>{w.label}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm">Peso estimado</Label>
+                      <Select value={weight} onValueChange={setWeight}>
+                        <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>{WEIGHT_OPTIONS.map(w => <SelectItem key={w.value} value={w.value}>{w.label}</SelectItem>)}</SelectContent>
+                      </Select>
                     </div>
                   </div>
                 </TabsContent>
 
-                {/* NATIONAL (CARRO / CAMIONETE) */}
-                <TabsContent value="national" className="space-y-6 mt-5">
+                {/* === CARRO === */}
+                <TabsContent value="national" className="space-y-5 mt-5">
+                  {/* Transport notice */}
+                  <Alert className="border-primary/30 bg-primary/5">
+                    <Truck className="h-4 w-4" />
+                    <AlertDescription className="text-sm">
+                      🚚 Realizamos apenas o transporte. Não realizamos desmontagem, montagem ou içamento de móveis.
+                    </AlertDescription>
+                  </Alert>
+
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                      <MapPin className="h-4 w-4 text-primary" /> Origem
-                    </div>
+                    <div className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-4 w-4 text-primary" /> Origem</div>
                     <div className="space-y-2">
                       <Label className="text-sm">Cidade</Label>
-                      <Input value={natOriginCity} onChange={e => setNatOriginCity(e.target.value)} placeholder="Ex: São Paulo, SP" />
+                      <Input value={natOriginCity} onChange={e => setNatOriginCity(e.target.value)} placeholder="Ex: Itapema, SC" />
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-1">
                       <Label className="text-sm">Rua</Label>
-                      <AddressAutocomplete cityName={natOriginCity} state="" disabled={!natOriginCity.trim()} placeholder="Digite o nome da rua..." onSelect={handleNatOriginSelect} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-2">
-                        <Label className="text-sm">Número</Label>
-                        <Input value={natOriginNumber} onChange={e => setNatOriginNumber(e.target.value)} placeholder="Nº" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm">Complemento <span className="text-muted-foreground font-normal">(opcional)</span></Label>
-                        <Input value={natOriginComplement} onChange={e => setNatOriginComplement(e.target.value)} placeholder="Apt, Sala..." />
-                      </div>
+                      <AddressAutocomplete cityName={natOriginCity} state="" disabled={!natOriginCity.trim()} placeholder="Rua + número..." onSelect={handleNatOriginSelect} />
                     </div>
                   </div>
 
                   <div className="border-t border-border" />
 
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                      <MapPin className="h-4 w-4 text-destructive" /> Destino
-                    </div>
+                    <div className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-4 w-4 text-destructive" /> Destino</div>
                     <div className="space-y-2">
                       <Label className="text-sm">Cidade</Label>
-                      <Input value={natDestCity} onChange={e => setNatDestCity(e.target.value)} placeholder="Ex: Rio de Janeiro, RJ" />
+                      <Input value={natDestCity} onChange={e => setNatDestCity(e.target.value)} placeholder="Ex: Bal. Camboriú, SC" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-sm">Rua</Label>
+                      <AddressAutocomplete cityName={natDestCity} state="" disabled={!natDestCity.trim()} placeholder="Rua + número..." onSelect={handleNatDestSelect} />
+                    </div>
+                  </div>
+
+                  <div className="border-t border-border" />
+
+                  {/* Car-specific fields */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-sm font-semibold"><Package className="h-4 w-4 text-primary" /> Detalhes do transporte</div>
+                    <div className="space-y-2">
+                      <Label className="text-sm">O que será transportado? *</Label>
+                      <Input value={carItemDescription} onChange={e => setCarItemDescription(e.target.value)} placeholder="Ex: Mudança, móveis, eletrodomésticos..." />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-sm">Rua</Label>
-                      <AddressAutocomplete cityName={natDestCity} state="" disabled={!natDestCity.trim()} placeholder="Digite o nome da rua..." onSelect={handleNatDestSelect} />
+                      <Label className="text-sm">Descreva os itens *</Label>
+                      <Textarea value={carItemDetails} onChange={e => setCarItemDetails(e.target.value)} placeholder="Ex: 1 sofá, 2 caixas, 1 geladeira..." rows={3} />
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-2">
-                        <Label className="text-sm">Número</Label>
-                        <Input value={natDestNumber} onChange={e => setNatDestNumber(e.target.value)} placeholder="Nº" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm">Complemento <span className="text-muted-foreground font-normal">(opcional)</span></Label>
-                        <Input value={natDestComplement} onChange={e => setNatDestComplement(e.target.value)} placeholder="Apt, Sala..." />
-                      </div>
+
+                    <div className="space-y-3">
+                      <ToggleQuestion label="Precisa de ajudante?" checked={carNeedHelper} onChange={setCarNeedHelper} />
+                      <ToggleQuestion label="É apartamento?" checked={carIsApartment} onChange={setCarIsApartment} />
+                      {carIsApartment && <ToggleQuestion label="Tem elevador?" checked={carHasElevator} onChange={setCarHasElevator} indent />}
+                      <ToggleQuestion label="Precisa descer/subir escada?" checked={carNeedStairs} onChange={setCarNeedStairs} />
+                      <ToggleQuestion label="Possui itens frágeis?" checked={carHasFragile} onChange={setCarHasFragile} />
+                      {carHasFragile && (
+                        <Alert className="border-yellow-400/50 bg-yellow-50 dark:bg-yellow-950/30">
+                          <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                          <AlertDescription className="text-sm text-yellow-800 dark:text-yellow-200">
+                            ⚠️ Pedimos que itens frágeis estejam bem embalados. O Frete Garça realiza apenas o transporte e não se responsabiliza por danos decorrentes de embalagem inadequada.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                      <ToggleQuestion label="Precisa de embalagem bolha?" checked={carNeedBubbleWrap} onChange={setCarNeedBubbleWrap} />
+                      <ToggleQuestion label="Será necessário mais de uma viagem?" checked={carMultiTrip} onChange={setCarMultiTrip} />
+                      {carMultiTrip && (
+                        <p className="text-sm text-muted-foreground pl-4">✅ Desconto automático será aplicado para múltiplas viagens.</p>
+                      )}
                     </div>
                   </div>
                 </TabsContent>
               </Tabs>
-
-              <div className="border-t border-border" />
-
-              {/* Scheduling & Urgency — cleaner layout */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                  <CalendarDays className="h-4 w-4 text-primary" /> Entrega
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant={deliveryWhen === "hoje" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setDeliveryWhen("hoje")}
-                  >
-                    Hoje
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={deliveryWhen === "agendar" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setDeliveryWhen("agendar")}
-                  >
-                    Agendar
-                  </Button>
-                </div>
-                {deliveryWhen === "hoje" && (
-                  <div className="space-y-2">
-                    <Label className="text-sm">Horário preferencial (opcional)</Label>
-                    <Input type="time" value={deliveryTime} onChange={e => setDeliveryTime(e.target.value)} />
-                  </div>
-                )}
-                {deliveryWhen === "agendar" && (
-                  <div className="space-y-2">
-                    <Label className="text-sm">Data e horário</Label>
-                    <Input type="datetime-local" value={deliveryTime} onChange={e => setDeliveryTime(e.target.value)} />
-                  </div>
-                )}
-              </div>
-
-              {/* Urgency chips */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                  <Zap className="h-4 w-4 text-primary" /> Urgência
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {([
-                    { value: "normal" as const, label: "Normal", desc: "40–45 min", icon: "🕐" },
-                    { value: "express" as const, label: "Express", desc: "Até 25 min · +R$8", icon: "⏱" },
-                    { value: "urgente" as const, label: "Urgente", desc: "Até 15 min · +R$12", icon: "⚡" },
-                  ]).map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setUrgency(opt.value)}
-                      className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-colors border ${
-                        urgency === opt.value
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-background text-foreground border-border hover:bg-accent"
-                      }`}
-                    >
-                      <span>{opt.icon}</span>
-                      <span>{opt.label}</span>
-                      <span className="text-xs opacity-70">({opt.desc})</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
 
               {/* Map */}
               {(originCoords || destCoords) && (
@@ -547,34 +433,25 @@ Rota: ${mapsLink}`;
                 <div className="rounded-xl border-2 border-primary/20 bg-accent/50 p-4 sm:p-6 space-y-4">
                   <div>
                     <h3 className="font-bold text-lg">Resultado da Simulação</h3>
-                    <p className="text-sm text-muted-foreground">{originCityName} → {destCityName} • {currentVehicleLabel}</p>
+                    <p className="text-sm text-muted-foreground">{originCityName} → {destCityName} • {mode === "sc" ? "Motoboy" : "Carro"}</p>
                   </div>
                   <div className="space-y-2.5 text-sm">
                     <div className="flex justify-between"><span className="text-muted-foreground">Distância</span><span className="font-medium">{result.distance_km.toFixed(1)} km</span></div>
                     {result.estimated_time_min && (
                       <div className="flex justify-between"><span className="text-muted-foreground">Tempo estimado</span><span className="font-medium">{result.estimated_time_min} min</span></div>
                     )}
-                    {URGENCY_FEE[urgency] > 0 && (
-                      <div className="flex justify-between"><span className="text-muted-foreground">Taxa de urgência ({urgency === "express" ? "Express" : "Urgente"})</span><span className="font-medium">+ R$ {URGENCY_FEE[urgency].toFixed(2)}</span></div>
-                    )}
                   </div>
                   <div className="border-t pt-4 flex flex-col items-center gap-1">
                     <span className="text-sm text-muted-foreground">Valor da entrega</span>
-                    <span className="text-3xl font-extrabold text-primary">R$ {(result.final_value + URGENCY_FEE[urgency]).toFixed(2)}</span>
+                    <span className="text-3xl font-extrabold text-primary">R$ {result.final_value.toFixed(2)}</span>
                     <p className="text-xs text-muted-foreground text-center mt-1">
                       Valor calculado com base na distância e condições da entrega.
                     </p>
                   </div>
 
-                  <Button
-                    asChild
-                    className="w-full gap-2 py-6 text-base font-semibold text-white"
-                    style={{ backgroundColor: "hsl(142, 70%, 45%)" }}
-                    size="lg"
-                  >
+                  <Button asChild className="w-full gap-2 py-6 text-base font-semibold text-white" style={{ backgroundColor: "hsl(142, 70%, 45%)" }} size="lg">
                     <a href={buildWhatsAppUrl()} target="_blank" rel="noopener noreferrer">
-                      <MessageCircle className="h-5 w-5" />
-                      Solicitar pelo WhatsApp
+                      <MessageCircle className="h-5 w-5" /> Solicitar pelo WhatsApp
                     </a>
                   </Button>
                 </div>
@@ -596,14 +473,14 @@ Rota: ${mapsLink}`;
               { icon: Zap, title: "Velocidade", desc: "Cotação em segundos com cálculo inteligente de rotas e preços em tempo real." },
               { icon: Shield, title: "Segurança", desc: "Seguro total em todas as entregas. Sua mercadoria protegida do início ao fim." },
               { icon: Clock, title: "Pontualidade", desc: "Motoboys verificados e rastreamento em tempo real para total tranquilidade." },
-            ].map((feature) => (
-              <Card key={feature.title} className="border-0 shadow-md bg-card hover:shadow-lg transition-shadow">
+            ].map(f => (
+              <Card key={f.title} className="border-0 shadow-md bg-card hover:shadow-lg transition-shadow">
                 <CardContent className="pt-6">
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent mb-4">
-                    <feature.icon className="h-6 w-6 text-primary" />
+                    <f.icon className="h-6 w-6 text-primary" />
                   </div>
-                  <h3 className="text-lg font-semibold">{feature.title}</h3>
-                  <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{feature.desc}</p>
+                  <h3 className="text-lg font-semibold">{f.title}</h3>
+                  <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{f.desc}</p>
                 </CardContent>
               </Card>
             ))}
@@ -611,18 +488,11 @@ Rota: ${mapsLink}`;
         </div>
       </section>
 
-      {/* Services */}
-      <div id="services">
-        <ServicesSection />
-      </div>
-
-      {/* Service Photos Carousel */}
+      <div id="services"><ServicesSection /></div>
       <ServicePhotosCarousel />
-
-      {/* Social Proof Reviews */}
       <SocialProof />
 
-      {/* Footer SEO */}
+      {/* Footer */}
       <footer className="border-t bg-card py-10">
         <div className="mx-auto max-w-6xl px-4">
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
@@ -637,26 +507,19 @@ Rota: ${mapsLink}`;
               <ul className="space-y-1.5 text-sm text-muted-foreground">
                 <li><a href="#simulator" className="hover:text-primary transition-colors">Simulador de Frete</a></li>
                 <li><a href="#services" className="hover:text-primary transition-colors">Entregas Motoboy</a></li>
-                <li><a href="#simulator" className="hover:text-primary transition-colors">Frete Carro/Camionete</a></li>
-                <li><a href="#features" className="hover:text-primary transition-colors">Entrega Expressa</a></li>
+                <li><a href="#simulator" className="hover:text-primary transition-colors">Frete Carro</a></li>
               </ul>
             </div>
             <div>
               <h4 className="font-semibold mb-3 text-sm">Cidades Atendidas</h4>
               <ul className="space-y-1.5 text-sm text-muted-foreground">
-                <li>Itapema</li>
-                <li>Porto Belo</li>
-                <li>Bal. Camboriú</li>
-                <li>Tijucas</li>
-                <li>Bombinhas</li>
-                <li>Itajaí</li>
+                {["Itapema","Porto Belo","Bal. Camboriú","Tijucas","Bombinhas","Itajaí"].map(c => <li key={c}>{c}</li>)}
               </ul>
             </div>
             <div>
-              <h4 className="font-semibold mb-3 text-sm">Links Úteis</h4>
+              <h4 className="font-semibold mb-3 text-sm">Contato</h4>
               <ul className="space-y-1.5 text-sm text-muted-foreground">
-                <li><a href="#reviews" className="hover:text-primary transition-colors">Avaliações Google</a></li>
-                <li><a href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">WhatsApp</a></li>
+                <li><a href={`https://wa.me/${WHATSAPP_FIXED}`} target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">WhatsApp</a></li>
                 <li><a href="#top" className="hover:text-primary transition-colors">Início</a></li>
               </ul>
             </div>
@@ -666,6 +529,16 @@ Rota: ${mapsLink}`;
           </div>
         </div>
       </footer>
+    </div>
+  );
+}
+
+// --- Toggle Question component ---
+function ToggleQuestion({ label, checked, onChange, indent }: { label: string; checked: boolean; onChange: (v: boolean) => void; indent?: boolean }) {
+  return (
+    <div className={`flex items-center justify-between py-2 px-3 rounded-lg bg-background border ${indent ? "ml-4" : ""}`}>
+      <span className="text-sm font-medium">{label}</span>
+      <Switch checked={checked} onCheckedChange={onChange} />
     </div>
   );
 }
