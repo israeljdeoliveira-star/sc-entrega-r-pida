@@ -20,13 +20,13 @@ const fields: SettingsField[] = [
   {
     key: "price_per_km_moto",
     label: "Valor por KM — Moto (R$)",
-    description: "Alterando este valor, você define quanto será cobrado por quilômetro percorrido em entregas realizadas por moto.",
+    description: "Cobrado apenas em fretes entre cidades diferentes. Entregas dentro da mesma cidade usam somente o Valor Base da cidade, sem cobrança por KM.",
     icon: Bike,
   },
   {
     key: "price_per_km_car",
     label: "Valor por KM — Carro (R$)",
-    description: "Alterando este valor, você define quanto será cobrado por quilômetro percorrido em entregas realizadas por carro.",
+    description: "Valor cobrado por quilômetro percorrido em entregas realizadas por carro.",
     icon: Car,
   },
   {

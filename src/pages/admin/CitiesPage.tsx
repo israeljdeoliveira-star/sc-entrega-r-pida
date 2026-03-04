@@ -203,14 +203,27 @@ export default function CitiesPage() {
                       <div className="space-y-2"><Label>Estado</Label><Input value={state} onChange={(e) => setState(e.target.value)} placeholder="SC" /></div>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-2"><Label>Valor Mínimo (R$)</Label><Input type="number" step="0.01" value={minValue} onChange={(e) => setMinValue(e.target.value)} /></div>
-                      <div className="space-y-2"><Label>Valor Base (R$)</Label><Input type="number" step="0.01" value={baseValue} onChange={(e) => setBaseValue(e.target.value)} /><p className="text-xs text-muted-foreground">Valor base adicionado a todo frete desta cidade.</p></div>
+                      <div className="space-y-2">
+                        <Label>Valor Mínimo (R$)</Label>
+                        <Input type="number" step="0.01" value={minValue} onChange={(e) => setMinValue(e.target.value)} />
+                        <p className="text-xs text-muted-foreground">Piso mínimo do frete. Nenhum frete que envolva esta cidade terá valor abaixo deste.</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Valor Base (R$)</Label>
+                        <Input type="number" step="0.01" value={baseValue} onChange={(e) => setBaseValue(e.target.value)} />
+                        <p className="text-xs text-muted-foreground">Quanto custa uma entrega dentro desta cidade (ex: R$15). Para fretes entre cidades, o maior valor base é usado como ponto de partida.</p>
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label>Densidade</Label>
                       <Select value={density} onValueChange={setDensity}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="baixa">Baixa</SelectItem><SelectItem value="media">Média</SelectItem><SelectItem value="alta">Alta</SelectItem></SelectContent></Select>
+                      <p className="text-xs text-muted-foreground">Afeta o multiplicador do frete. Baixa (−10%): cidades com pouco trânsito. Média: padrão. Alta (+15%): trânsito intenso, ruas estreitas.</p>
                     </div>
-                    <div className="space-y-2"><Label>Observação Interna</Label><Textarea value={observation} onChange={(e) => setObservation(e.target.value)} placeholder="Notas internas..." rows={2} /></div>
+                    <div className="space-y-2">
+                      <Label>Observação Interna</Label>
+                      <Textarea value={observation} onChange={(e) => setObservation(e.target.value)} placeholder="Notas internas..." rows={2} />
+                      <p className="text-xs text-muted-foreground">Notas internas visíveis apenas para administradores.</p>
+                    </div>
                     <Button onClick={handleSaveCity} className="w-full">Salvar</Button>
                   </div>
                 </DialogContent>
@@ -265,8 +278,16 @@ export default function CitiesPage() {
                       </Select>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-2"><Label>Valor Mínimo (R$)</Label><Input type="number" step="0.01" value={stateMinValue} onChange={(e) => setStateMinValue(e.target.value)} /></div>
-                      <div className="space-y-2"><Label>Valor Base (R$)</Label><Input type="number" step="0.01" value={stateBaseValue} onChange={(e) => setStateBaseValue(e.target.value)} /><p className="text-xs text-muted-foreground">Valor base para fretes neste estado.</p></div>
+                      <div className="space-y-2">
+                        <Label>Valor Mínimo (R$)</Label>
+                        <Input type="number" step="0.01" value={stateMinValue} onChange={(e) => setStateMinValue(e.target.value)} />
+                        <p className="text-xs text-muted-foreground">Piso mínimo para fretes neste estado. O valor final nunca ficará abaixo deste.</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Valor Base (R$)</Label>
+                        <Input type="number" step="0.01" value={stateBaseValue} onChange={(e) => setStateBaseValue(e.target.value)} />
+                        <p className="text-xs text-muted-foreground">Valor base adicionado a todo frete com origem neste estado, antes da cobrança por KM.</p>
+                      </div>
                     </div>
                     <Button onClick={handleSaveState} className="w-full">Salvar</Button>
                   </div>

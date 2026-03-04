@@ -160,7 +160,12 @@ Deno.serve(async (req) => {
       }
 
       const baseForCalc = !isMoto ? Math.max(cityBaseValue, carMinValue) : cityBaseValue;
-      const valorOperacional = baseForCalc + (distanceKm * pricePerKm) * combinedMult + additionalsTotal + motoExtras;
+
+      // Same city = only base value (no KM charge). Inter-city = base + KM displacement.
+      const isSameCity = origin_city_id === destination_city_id;
+      const valorOperacional = isSameCity
+        ? baseForCalc + additionalsTotal + motoExtras
+        : baseForCalc + (distanceKm * pricePerKm) * combinedMult + additionalsTotal + motoExtras;
       const margemTotal = calcMargin(settings as Record<string, unknown>, conditions, distanceKm);
 
       let valorFinal = Math.ceil(valorOperacional * (1 + margemTotal / 100));
