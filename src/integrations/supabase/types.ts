@@ -49,6 +49,7 @@ export type Database = {
           name: string
           observation: string | null
           state: string
+          vehicle_type: string
         }
         Insert: {
           base_value?: number
@@ -60,6 +61,7 @@ export type Database = {
           name: string
           observation?: string | null
           state?: string
+          vehicle_type?: string
         }
         Update: {
           base_value?: number
@@ -71,6 +73,7 @@ export type Database = {
           name?: string
           observation?: string | null
           state?: string
+          vehicle_type?: string
         }
         Relationships: []
       }
@@ -427,6 +430,36 @@ export type Database = {
           name?: string | null
           phone?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      served_states: {
+        Row: {
+          base_value: number
+          created_at: string
+          id: string
+          is_active: boolean
+          min_value: number
+          state_code: string
+          state_name: string
+        }
+        Insert: {
+          base_value?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          min_value?: number
+          state_code: string
+          state_name: string
+        }
+        Update: {
+          base_value?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          min_value?: number
+          state_code?: string
+          state_name?: string
         }
         Relationships: []
       }
