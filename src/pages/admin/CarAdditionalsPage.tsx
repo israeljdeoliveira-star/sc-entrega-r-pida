@@ -4,24 +4,26 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Car, Users, ArrowDown, Building2, Package, AlertTriangle, Percent } from "lucide-react";
+import { Car, Users, ArrowDown, Building2, Package, AlertTriangle, Percent, RotateCcw, MapPin } from "lucide-react";
 
 interface Field {
   key: string;
   label: string;
   description: string;
   icon: React.ElementType;
-  prefix?: string;
+  section: "car" | "moto" | "discount";
 }
 
 const fields: Field[] = [
-  { key: "car_min_value", label: "Valor Mínimo Carro (R$)", description: "Valor mínimo cobrado em qualquer frete de carro, independente da distância.", icon: Car },
-  { key: "car_fee_helper", label: "Taxa Ajudante (R$)", description: "Valor adicional quando o cliente solicita ajudante para carga/descarga.", icon: Users },
-  { key: "car_fee_stairs", label: "Taxa Escada (R$)", description: "Valor adicional quando é necessário subir/descer escadas.", icon: ArrowDown },
-  { key: "car_fee_no_elevator", label: "Taxa Apartamento sem Elevador (R$)", description: "Valor adicional para entregas em apartamentos sem elevador.", icon: Building2 },
-  { key: "car_fee_bubble_wrap", label: "Taxa Embalagem Bolha (R$)", description: "Valor adicional quando o cliente solicita embalagem bolha.", icon: Package },
-  { key: "car_fee_fragile", label: "Taxa Item Frágil (R$)", description: "Valor adicional quando há itens frágeis no transporte.", icon: AlertTriangle },
-  { key: "multi_trip_discount_pct", label: "Desconto Múltiplas Viagens (%)", description: "Percentual de desconto aplicado automaticamente quando o cliente precisa de mais de uma viagem.", icon: Percent, prefix: "%" },
+  { key: "car_min_value", label: "Valor Mínimo Carro (R$)", description: "Valor mínimo cobrado em qualquer frete de carro, independente da distância.", icon: Car, section: "car" },
+  { key: "car_fee_helper", label: "Taxa Ajudante (R$)", description: "Valor adicional quando o cliente solicita ajudante para carga/descarga.", icon: Users, section: "car" },
+  { key: "car_fee_stairs", label: "Taxa Escada (R$)", description: "Valor adicional quando é necessário subir/descer escadas.", icon: ArrowDown, section: "car" },
+  { key: "car_fee_no_elevator", label: "Taxa Apartamento sem Elevador (R$)", description: "Valor adicional para entregas em apartamentos sem elevador.", icon: Building2, section: "car" },
+  { key: "car_fee_bubble_wrap", label: "Taxa Embalagem Bolha (R$)", description: "Valor adicional quando o cliente solicita embalagem bolha.", icon: Package, section: "car" },
+  { key: "car_fee_fragile", label: "Taxa Item Frágil (R$)", description: "Valor adicional quando há itens frágeis no transporte.", icon: AlertTriangle, section: "car" },
+  { key: "moto_return_fee", label: "Taxa Retorno Moto (R$)", description: "Valor cobrado quando o motoboy precisa retornar ao ponto de coleta.", icon: RotateCcw, section: "moto" },
+  { key: "moto_extra_stop_fee", label: "Taxa Parada Extra Moto (R$)", description: "Valor adicional por cada parada extra no trajeto do motoboy.", icon: MapPin, section: "moto" },
+  { key: "multi_trip_discount_pct", label: "Desconto Múltiplas Viagens (%)", description: "Percentual de desconto aplicado automaticamente quando o cliente precisa de mais de uma viagem.", icon: Percent, section: "discount" },
 ];
 
 export default function CarAdditionalsPage() {
@@ -33,7 +35,7 @@ export default function CarAdditionalsPage() {
 
   useEffect(() => {
     supabase.from("freight_settings")
-      .select("id, car_min_value, car_fee_helper, car_fee_stairs, car_fee_no_elevator, car_fee_bubble_wrap, car_fee_fragile, multi_trip_discount_pct")
+      .select("id, car_min_value, car_fee_helper, car_fee_stairs, car_fee_no_elevator, car_fee_bubble_wrap, car_fee_fragile, moto_return_fee, moto_extra_stop_fee, multi_trip_discount_pct")
       .limit(1).single()
       .then(({ data }) => {
         if (data) {
@@ -75,35 +77,47 @@ export default function CarAdditionalsPage() {
 
     setOriginal({ ...settings });
     setSaving(false);
-    toast({ title: "Configurações do carro salvas!" });
+    toast({ title: "Configurações salvas!" });
+  };
+
+  const renderSection = (title: string, section: string, emoji: string) => {
+    const sectionFields = fields.filter(f => f.section === section);
+    return (
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold">{emoji} {title}</h3>
+        <div className="grid gap-4 lg:grid-cols-2">
+          {sectionFields.map(field => (
+            <Card key={field.key}>
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                    <field.icon className="h-5 w-5 text-primary" />
+                  </div>
+                  <CardTitle className="text-base">{field.label}</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Input type="number" step="0.01" value={settings[field.key] || ""} onChange={e => set(field.key, e.target.value)} />
+                <p className="text-sm text-muted-foreground leading-relaxed">{field.description}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h2 className="text-2xl font-bold">Adicionais do Carro</h2>
-        <p className="text-muted-foreground">Configure o valor mínimo, taxas adicionais e desconto para múltiplas viagens.</p>
+        <h2 className="text-2xl font-bold">Adicionais e Taxas</h2>
+        <p className="text-muted-foreground">Configure taxas adicionais do carro, moto e descontos.</p>
       </div>
-      <div className="grid gap-6 lg:grid-cols-2">
-        {fields.map(field => (
-          <Card key={field.key}>
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                  <field.icon className="h-5 w-5 text-primary" />
-                </div>
-                <CardTitle className="text-base">{field.label}</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Input type="number" step="0.01" value={settings[field.key] || ""} onChange={e => set(field.key, e.target.value)} />
-              <p className="text-sm text-muted-foreground leading-relaxed">{field.description}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {renderSection("Adicionais do Carro", "car", "🚗")}
+      {renderSection("Adicionais do Motoboy", "moto", "🛵")}
+      {renderSection("Descontos", "discount", "💸")}
       <Button onClick={handleSave} disabled={saving} className="w-full max-w-md">
-        {saving ? "Salvando..." : "Salvar Configurações do Carro"}
+        {saving ? "Salvando..." : "Salvar Configurações"}
       </Button>
     </div>
   );

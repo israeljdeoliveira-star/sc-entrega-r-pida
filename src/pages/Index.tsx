@@ -10,7 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Bike, Car, MapPin, ArrowRight, Globe, Shield, Zap, Clock, MessageCircle, CalendarDays, Package, AlertTriangle, Truck } from "lucide-react";
+import { Bike, Car, MapPin, ArrowRight, Globe, Shield, Zap, Clock, MessageCircle, CalendarDays, Package, AlertTriangle, Truck, Plus, RotateCcw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import HeroSection from "@/components/HeroSection";
 import SocialProof from "@/components/SocialProof";
@@ -31,14 +31,25 @@ interface FreightResult {
 }
 
 const WEIGHT_OPTIONS = [
-  { value: "1 kg", label: "1 kg — ☕ pacote de café" },
-  { value: "2 kg", label: "2 kg — 💻 notebook" },
-  { value: "3 kg", label: "3 kg — 🍍 abacaxi" },
-  { value: "5 kg", label: "5 kg — 🍉 melancia pequena" },
-  { value: "10 kg", label: "10 kg — 📦 micro-ondas" },
-  { value: "15 kg", label: "15 kg — 🖥️ monitor" },
-  { value: "20 kg", label: "20 kg — 🧳 mala grande" },
+  { value: "500g", label: "500g", example: "📦 Pacote de café (500g)" },
+  { value: "1kg", label: "1 kg", example: "📚 Livro grande" },
+  { value: "3kg", label: "3 kg", example: "🍍 Abacaxi médio (~3kg)" },
+  { value: "5kg", label: "5 kg", example: "🍉 Melancia pequena" },
+  { value: "10kg", label: "10 kg", example: "🧴 Galão de água" },
+  { value: "15kg", label: "15 kg", example: "🖥️ Monitor" },
+  { value: "20kg", label: "20 kg", example: "🧳 Mala grande" },
 ];
+
+const CATEGORIES = [
+  { value: "documentos", label: "📄 Documentos" },
+  { value: "eletronicos", label: "💻 Eletrônicos" },
+  { value: "alimentacao", label: "🍔 Alimentação" },
+  { value: "presentes", label: "🎁 Presentes" },
+  { value: "malotes", label: "🧾 Malotes" },
+  { value: "outros", label: "📦 Outros" },
+];
+
+const VOLUME_KEYWORDS = ["sofá", "sofa", "geladeira", "fogão", "fogao", "guarda-roupa", "guarda roupa", "armário", "armario", "cama", "mesa grande"];
 
 const WHATSAPP_FIXED = "5547988042341";
 
@@ -48,7 +59,6 @@ export default function Index() {
   const [cities, setCities] = useState<City[]>([]);
   const { toast } = useToast();
 
-  // Navbar scroll hide
   const [navVisible, setNavVisible] = useState(true);
   const lastScrollY = useRef(0);
 
@@ -62,23 +72,21 @@ export default function Index() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // SC mode state
+  // SC Moto state
   const [originCityId, setOriginCityId] = useState("");
   const [destCityId, setDestCityId] = useState("");
   const [originAddress, setOriginAddress] = useState<AddressSelection | null>(null);
   const [destAddress, setDestAddress] = useState<AddressSelection | null>(null);
-  const [originNumber, setOriginNumber] = useState("");
-  const [destNumber, setDestNumber] = useState("");
   const [weight, setWeight] = useState("");
   const [category, setCategory] = useState("");
+  const [motoReturn, setMotoReturn] = useState(false);
+  const [motoExtraStops, setMotoExtraStops] = useState(0);
 
-  // National (car) mode state
-  const [natOriginCity, setNatOriginCity] = useState("");
-  const [natDestCity, setNatDestCity] = useState("");
-  const [natOriginAddress, setNatOriginAddress] = useState<AddressSelection | null>(null);
-  const [natDestAddress, setNatDestAddress] = useState<AddressSelection | null>(null);
-  const [natOriginNumber, setNatOriginNumber] = useState("");
-  const [natDestNumber, setNatDestNumber] = useState("");
+  // Car state - uses same city dropdown
+  const [carOriginCityId, setCarOriginCityId] = useState("");
+  const [carDestCityId, setCarDestCityId] = useState("");
+  const [carOriginAddress, setCarOriginAddress] = useState<AddressSelection | null>(null);
+  const [carDestAddress, setCarDestAddress] = useState<AddressSelection | null>(null);
 
   // Car-specific fields
   const [carItemDescription, setCarItemDescription] = useState("");
@@ -101,10 +109,9 @@ export default function Index() {
   const [result, setResult] = useState<FreightResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [volumeAlert, setVolumeAlert] = useState(false);
 
-  const scrollToSimulator = () => {
-    simulatorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-  };
+  const scrollToSimulator = () => simulatorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
   const scrollToSection = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
 
@@ -113,24 +120,43 @@ export default function Index() {
       .then(({ data }) => { if (data) setCities(data); });
   }, []);
 
-  const originCityName = mode === "sc" ? cities.find(c => c.id === originCityId)?.name || "" : natOriginCity;
-  const destCityName = mode === "sc" ? cities.find(c => c.id === destCityId)?.name || "" : natDestCity;
+  const getOriginCityName = () => {
+    if (mode === "sc") return cities.find(c => c.id === originCityId)?.name || "";
+    return cities.find(c => c.id === carOriginCityId)?.name || "";
+  };
+  const getDestCityName = () => {
+    if (mode === "sc") return cities.find(c => c.id === destCityId)?.name || "";
+    return cities.find(c => c.id === carDestCityId)?.name || "";
+  };
 
   const handleOriginSelect = useCallback((sel: AddressSelection) => { setOriginAddress(sel); setOriginCoords([sel.lat, sel.lng]); }, []);
   const handleDestSelect = useCallback((sel: AddressSelection) => { setDestAddress(sel); setDestCoords([sel.lat, sel.lng]); }, []);
-  const handleNatOriginSelect = useCallback((sel: AddressSelection) => { setNatOriginAddress(sel); setOriginCoords([sel.lat, sel.lng]); }, []);
-  const handleNatDestSelect = useCallback((sel: AddressSelection) => { setNatDestAddress(sel); setDestCoords([sel.lat, sel.lng]); }, []);
+  const handleCarOriginSelect = useCallback((sel: AddressSelection) => { setCarOriginAddress(sel); setOriginCoords([sel.lat, sel.lng]); }, []);
+  const handleCarDestSelect = useCallback((sel: AddressSelection) => { setCarDestAddress(sel); setDestCoords([sel.lat, sel.lng]); }, []);
   const handleRouteCalculated = useCallback((distKm: number, durMin: number) => { setRouteDistance(distKm); setRouteDuration(durMin); }, []);
 
+  // Reset on mode change
   useEffect(() => { setResult(null); setError(""); setOriginCoords(null); setDestCoords(null); setRouteDistance(null); setRouteDuration(null); }, [mode]);
   useEffect(() => { setOriginAddress(null); setOriginCoords(null); }, [originCityId]);
   useEffect(() => { setDestAddress(null); setDestCoords(null); }, [destCityId]);
-  useEffect(() => { if (routeDistance && routeDistance > 0) handleSimulate(); }, [routeDistance]);
+  useEffect(() => { setCarOriginAddress(null); setOriginCoords(null); }, [carOriginCityId]);
+  useEffect(() => { setCarDestAddress(null); setDestCoords(null); }, [carDestCityId]);
+
+  // Auto-calculate when route is ready
+  useEffect(() => {
+    if (routeDistance && routeDistance > 0) handleSimulate();
+  }, [routeDistance, motoReturn, motoExtraStops, carNeedHelper, carNeedStairs, carIsApartment, carHasElevator, carHasFragile, carNeedBubbleWrap, carMultiTrip]);
+
+  // Volume alert for car
+  useEffect(() => {
+    const text = (carItemDescription + " " + carItemDetails).toLowerCase();
+    const hits = VOLUME_KEYWORDS.filter(kw => text.includes(kw));
+    setVolumeAlert(hits.length >= 2);
+  }, [carItemDescription, carItemDetails]);
 
   const handleSimulate = async () => {
-    if (!routeDistance) { setError("Aguarde o cálculo da rota no mapa."); return; }
+    if (!routeDistance) return;
 
-    // Car validation
     if (mode === "national") {
       if (!carItemDescription.trim()) { setError("Informe o que será transportado."); return; }
       if (!carItemDetails.trim()) { setError("Descreva os itens a serem transportados."); return; }
@@ -139,7 +165,8 @@ export default function Index() {
     setError(""); setResult(null); setLoading(true);
 
     try {
-      const carAdditionals = mode === "national" ? {
+      const isCar = mode === "national";
+      const carAdditionals = isCar ? {
         helper: carNeedHelper,
         stairs: carNeedStairs,
         no_elevator: carIsApartment && !carHasElevator,
@@ -147,12 +174,24 @@ export default function Index() {
         fragile: carHasFragile,
       } : {};
 
-      const body = mode === "sc"
-        ? { mode: "sc", origin_city_id: originCityId, destination_city_id: destCityId, vehicle_type: "moto", distance_km: routeDistance }
+      const body = isCar
+        ? {
+            mode: "sc",
+            origin_city_id: carOriginCityId,
+            destination_city_id: carDestCityId,
+            vehicle_type: "car",
+            distance_km: routeDistance,
+            car_additionals: carAdditionals,
+            multi_trip: carMultiTrip,
+          }
         : {
-            mode: "national", origin_text: natOriginCity.trim(), destination_text: natDestCity.trim(),
-            vehicle_type: "car", distance_km: routeDistance,
-            car_additionals: carAdditionals, multi_trip: carMultiTrip,
+            mode: "sc",
+            origin_city_id: originCityId,
+            destination_city_id: destCityId,
+            vehicle_type: "moto",
+            distance_km: routeDistance,
+            moto_return: motoReturn,
+            moto_extra_stops: motoExtraStops,
           };
 
       const { data, error: fnError } = await supabase.functions.invoke("calculate-freight", { body });
@@ -162,10 +201,10 @@ export default function Index() {
       setResult({ ...data, estimated_time_min: routeDuration ? Math.round(routeDuration) : undefined });
 
       await logSimulation({
-        origin_city: originCityName || undefined,
-        destination_city: destCityName || undefined,
-        vehicle_type: mode === "national" ? "car" : "moto",
-        mode, distance_km: data.distance_km, final_value: data.final_value,
+        origin_city: getOriginCityName() || undefined,
+        destination_city: getDestCityName() || undefined,
+        vehicle_type: isCar ? "car" : "moto",
+        mode: "sc", distance_km: data.distance_km, final_value: data.final_value,
       });
       trackEvent("simulation_completed", { mode, distance: routeDistance });
     } catch (err: any) {
@@ -177,15 +216,15 @@ export default function Index() {
   const buildWhatsAppUrl = () => {
     if (!result) return "#";
     const tipo = mode === "sc" ? "Moto" : "Carro";
-    const oAddr = mode === "sc" ? originAddress : natOriginAddress;
-    const dAddr = mode === "sc" ? destAddress : natDestAddress;
-    const oNum = mode === "sc" ? originNumber : natOriginNumber;
-    const dNum = mode === "sc" ? destNumber : natDestNumber;
+    const oAddr = mode === "sc" ? originAddress : carOriginAddress;
+    const dAddr = mode === "sc" ? destAddress : carDestAddress;
+    const oCityName = getOriginCityName();
+    const dCityName = getDestCityName();
 
-    const originText = `${oAddr?.street || ""}${oNum ? `, Nº ${oNum}` : ""} - ${oAddr?.neighborhood || ""} - ${originCityName}`;
-    const destText = `${dAddr?.street || ""}${dNum ? `, Nº ${dNum}` : ""} - ${dAddr?.neighborhood || ""} - ${destCityName}`;
+    const originText = `${oAddr?.street || ""} - ${oAddr?.neighborhood || ""} - ${oCityName}`;
+    const destText = `${dAddr?.street || ""} - ${dAddr?.neighborhood || ""} - ${dCityName}`;
 
-    const msg = `🚛 FRETE GARÇA — SIMULAÇÃO
+    let msg = `🚛 FRETE GARÇA — SIMULAÇÃO
 
 Olá! 👋
 
@@ -194,33 +233,28 @@ Segue a simulação do seu frete:
 📍 Coleta: ${originText}
 📍 Entrega: ${destText}
 🚚 Tipo: ${tipo}
+📏 Distância: ${result.distance_km.toFixed(1)} km
 💰 Valor estimado: R$ ${result.final_value.toFixed(2)}
 
 ⚠️ Esta é uma simulação automática.
 O valor pode sofrer alteração após conferência de detalhes.
 
 📦 Itens frágeis devem estar bem embalados.
-Realizamos apenas o transporte.
-${carMultiTrip ? "\nSe precisar de mais de uma viagem, aplicamos desconto conforme informado." : ""}
-Estamos à disposição! 😊`;
+Realizamos apenas o transporte.`;
+
+    if (carMultiTrip && mode === "national") {
+      msg += "\n\nSe precisar de mais de uma viagem, aplicamos desconto conforme informado.";
+    }
+    if ((mode === "national" && carHasFragile) || mode === "sc") {
+      msg += "\n\n🔎 Esta é uma simulação automática. O valor pode sofrer ajustes após conferência dos itens.";
+    }
+
+    msg += "\n\nEstamos à disposição! 😊";
 
     return `https://wa.me/${WHATSAPP_FIXED}?text=${encodeURIComponent(msg)}`;
   };
 
-  // --- Render helpers ---
-  const AddressBlock = ({ label, icon, citySelect, addressComp, numberVal, setNumber }: {
-    label: string; icon: React.ReactNode; citySelect: React.ReactNode; addressComp: React.ReactNode;
-    numberVal: string; setNumber: (v: string) => void;
-  }) => (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2 text-sm font-semibold text-foreground">{icon} {label}</div>
-      {citySelect}
-      <div className="space-y-1">
-        <Label className="text-sm">Rua + Número</Label>
-        {addressComp}
-      </div>
-    </div>
-  );
+  const selectedWeight = WEIGHT_OPTIONS.find(w => w.value === weight);
 
   return (
     <div className="min-h-screen bg-background" id="top">
@@ -273,14 +307,15 @@ Estamos à disposição! 😊`;
             <CardContent className="space-y-5 pt-4 px-4 sm:px-8">
               <Tabs value={mode} onValueChange={(v) => setMode(v as "sc" | "national")}>
                 <TabsList className="w-full">
-                  <TabsTrigger value="sc" className="flex-1 gap-1.5"><Bike className="h-4 w-4" /> Motoboy</TabsTrigger>
-                  <TabsTrigger value="national" className="flex-1 gap-1.5"><Car className="h-4 w-4" /> Carro</TabsTrigger>
+                  <TabsTrigger value="sc" className="flex-1 gap-1.5"><Bike className="h-4 w-4" /> 🛵 Motoboy</TabsTrigger>
+                  <TabsTrigger value="national" className="flex-1 gap-1.5"><Car className="h-4 w-4" /> 🚗 Carro</TabsTrigger>
                 </TabsList>
 
                 {/* === MOTOBOY === */}
                 <TabsContent value="sc" className="space-y-5 mt-5">
+                  {/* Coleta */}
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-4 w-4 text-primary" /> Local de Coleta</div>
+                    <div className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-4 w-4 text-primary" /> 📍 Local de Coleta</div>
                     <div className="space-y-2">
                       <Label className="text-sm">Cidade</Label>
                       <Select value={originCityId} onValueChange={setOriginCityId}>
@@ -289,15 +324,16 @@ Estamos à disposição! 😊`;
                       </Select>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-sm">Rua</Label>
-                      <AddressAutocomplete cityName={originCityName} disabled={!originCityId} placeholder="Rua + número..." onSelect={handleOriginSelect} />
+                      <Label className="text-sm">Rua + Número</Label>
+                      <AddressAutocomplete cityName={cities.find(c => c.id === originCityId)?.name || ""} disabled={!originCityId} placeholder="Ex: Rua Brasil, 123" onSelect={handleOriginSelect} />
                     </div>
                   </div>
 
                   <div className="border-t border-border" />
 
+                  {/* Destino */}
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-4 w-4 text-destructive" /> Destino</div>
+                    <div className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-4 w-4 text-destructive" /> 📍 Destino</div>
                     <div className="space-y-2">
                       <Label className="text-sm">Cidade</Label>
                       <Select value={destCityId} onValueChange={setDestCityId}>
@@ -306,32 +342,57 @@ Estamos à disposição! 😊`;
                       </Select>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-sm">Rua</Label>
-                      <AddressAutocomplete cityName={destCityName} disabled={!destCityId} placeholder="Rua + número..." onSelect={handleDestSelect} />
+                      <Label className="text-sm">Rua + Número</Label>
+                      <AddressAutocomplete cityName={cities.find(c => c.id === destCityId)?.name || ""} disabled={!destCityId} placeholder="Ex: Rua Brasil, 123" onSelect={handleDestSelect} />
                     </div>
                   </div>
 
                   <div className="border-t border-border" />
 
+                  {/* Detalhes da carga */}
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm font-semibold"><Package className="h-4 w-4 text-primary" /> Detalhes da carga</div>
+                    <div className="flex items-center gap-2 text-sm font-semibold"><Package className="h-4 w-4 text-primary" /> 📦 Detalhes da carga</div>
                     <div className="space-y-2">
                       <Label className="text-sm">Categoria</Label>
                       <Select value={category} onValueChange={setCategory}>
                         <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                         <SelectContent>
-                          {["Eletrônicos","Documentos","Alimentos","Chaves","Pacotes","Outros"].map(c =>
-                            <SelectItem key={c} value={c}>{c}</SelectItem>
-                          )}
+                          {CATEGORIES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-sm">Peso estimado</Label>
                       <Select value={weight} onValueChange={setWeight}>
-                        <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectTrigger><SelectValue placeholder="Selecione o peso" /></SelectTrigger>
                         <SelectContent>{WEIGHT_OPTIONS.map(w => <SelectItem key={w.value} value={w.value}>{w.label}</SelectItem>)}</SelectContent>
                       </Select>
+                      {selectedWeight && (
+                        <p className="text-xs text-muted-foreground ml-1">{selectedWeight.example}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="border-t border-border" />
+
+                  {/* Opções extras moto */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold"><RotateCcw className="h-4 w-4 text-primary" /> 🔁 Opções adicionais</div>
+                    <ToggleQuestion label="Precisa de retorno?" emoji="🔁" checked={motoReturn} onChange={setMotoReturn} />
+                    {motoReturn && <p className="text-xs text-muted-foreground pl-4">✅ Taxa de retorno será adicionada automaticamente.</p>}
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-background border">
+                        <span className="text-sm font-medium">📍 Paradas extras</span>
+                        <div className="flex items-center gap-2">
+                          <Button variant="outline" size="icon" className="h-8 w-8" disabled={motoExtraStops <= 0} onClick={() => setMotoExtraStops(v => Math.max(0, v - 1))}>-</Button>
+                          <span className="text-sm font-semibold w-6 text-center">{motoExtraStops}</span>
+                          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setMotoExtraStops(v => v + 1)}>
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      {motoExtraStops > 0 && <p className="text-xs text-muted-foreground pl-4">✅ {motoExtraStops} parada(s) extra(s) adicionada(s) ao valor.</p>}
                     </div>
                   </div>
                 </TabsContent>
@@ -346,29 +407,37 @@ Estamos à disposição! 😊`;
                     </AlertDescription>
                   </Alert>
 
+                  {/* Origem */}
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-4 w-4 text-primary" /> Origem</div>
+                    <div className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-4 w-4 text-primary" /> 📍 Origem</div>
                     <div className="space-y-2">
                       <Label className="text-sm">Cidade</Label>
-                      <Input value={natOriginCity} onChange={e => setNatOriginCity(e.target.value)} placeholder="Ex: Itapema, SC" />
+                      <Select value={carOriginCityId} onValueChange={setCarOriginCityId}>
+                        <SelectTrigger><SelectValue placeholder="Selecione a cidade" /></SelectTrigger>
+                        <SelectContent>{cities.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-sm">Rua</Label>
-                      <AddressAutocomplete cityName={natOriginCity} state="" disabled={!natOriginCity.trim()} placeholder="Rua + número..." onSelect={handleNatOriginSelect} />
+                      <Label className="text-sm">Rua + Número</Label>
+                      <AddressAutocomplete cityName={cities.find(c => c.id === carOriginCityId)?.name || ""} disabled={!carOriginCityId} placeholder="Ex: Rua 230, 570" onSelect={handleCarOriginSelect} />
                     </div>
                   </div>
 
                   <div className="border-t border-border" />
 
+                  {/* Destino */}
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-4 w-4 text-destructive" /> Destino</div>
+                    <div className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-4 w-4 text-destructive" /> 📍 Destino</div>
                     <div className="space-y-2">
                       <Label className="text-sm">Cidade</Label>
-                      <Input value={natDestCity} onChange={e => setNatDestCity(e.target.value)} placeholder="Ex: Bal. Camboriú, SC" />
+                      <Select value={carDestCityId} onValueChange={setCarDestCityId}>
+                        <SelectTrigger><SelectValue placeholder="Selecione a cidade" /></SelectTrigger>
+                        <SelectContent>{cities.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-sm">Rua</Label>
-                      <AddressAutocomplete cityName={natDestCity} state="" disabled={!natDestCity.trim()} placeholder="Rua + número..." onSelect={handleNatDestSelect} />
+                      <Label className="text-sm">Rua + Número</Label>
+                      <AddressAutocomplete cityName={cities.find(c => c.id === carDestCityId)?.name || ""} disabled={!carDestCityId} placeholder="Ex: Rua 230, 570" onSelect={handleCarDestSelect} />
                     </div>
                   </div>
 
@@ -376,7 +445,7 @@ Estamos à disposição! 😊`;
 
                   {/* Car-specific fields */}
                   <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-sm font-semibold"><Package className="h-4 w-4 text-primary" /> Detalhes do transporte</div>
+                    <div className="flex items-center gap-2 text-sm font-semibold"><Package className="h-4 w-4 text-primary" /> 📦 Detalhes do transporte</div>
                     <div className="space-y-2">
                       <Label className="text-sm">O que será transportado? *</Label>
                       <Input value={carItemDescription} onChange={e => setCarItemDescription(e.target.value)} placeholder="Ex: Mudança, móveis, eletrodomésticos..." />
@@ -386,22 +455,31 @@ Estamos à disposição! 😊`;
                       <Textarea value={carItemDetails} onChange={e => setCarItemDetails(e.target.value)} placeholder="Ex: 1 sofá, 2 caixas, 1 geladeira..." rows={3} />
                     </div>
 
+                    {volumeAlert && (
+                      <Alert className="border-orange-400/50 bg-orange-50 dark:bg-orange-950/30">
+                        <Truck className="h-4 w-4 text-orange-600" />
+                        <AlertDescription className="text-sm text-orange-800 dark:text-orange-200">
+                          🚛 Observação: Pelo volume informado, pode ser necessário realizar duas viagens.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
                     <div className="space-y-3">
-                      <ToggleQuestion label="Precisa de ajudante?" checked={carNeedHelper} onChange={setCarNeedHelper} />
-                      <ToggleQuestion label="É apartamento?" checked={carIsApartment} onChange={setCarIsApartment} />
-                      {carIsApartment && <ToggleQuestion label="Tem elevador?" checked={carHasElevator} onChange={setCarHasElevator} indent />}
-                      <ToggleQuestion label="Precisa descer/subir escada?" checked={carNeedStairs} onChange={setCarNeedStairs} />
-                      <ToggleQuestion label="Possui itens frágeis?" checked={carHasFragile} onChange={setCarHasFragile} />
+                      <ToggleQuestion label="Precisa de ajudante?" emoji="👷" checked={carNeedHelper} onChange={setCarNeedHelper} />
+                      <ToggleQuestion label="É apartamento?" emoji="🏢" checked={carIsApartment} onChange={setCarIsApartment} />
+                      {carIsApartment && <ToggleQuestion label="Tem elevador?" emoji="🛗" checked={carHasElevator} onChange={setCarHasElevator} indent />}
+                      <ToggleQuestion label="Precisa descer/subir escada?" emoji="🪜" checked={carNeedStairs} onChange={setCarNeedStairs} />
+                      <ToggleQuestion label="Possui itens frágeis?" emoji="⚠️" checked={carHasFragile} onChange={setCarHasFragile} />
                       {carHasFragile && (
                         <Alert className="border-yellow-400/50 bg-yellow-50 dark:bg-yellow-950/30">
                           <AlertTriangle className="h-4 w-4 text-yellow-600" />
                           <AlertDescription className="text-sm text-yellow-800 dark:text-yellow-200">
-                            ⚠️ Pedimos que itens frágeis estejam bem embalados. O Frete Garça realiza apenas o transporte e não se responsabiliza por danos decorrentes de embalagem inadequada.
+                            💛 Atenção: recomendamos que itens frágeis sejam muito bem embalados pelo cliente. Trabalhamos com transporte, mas não nos responsabilizamos por avarias em itens frágeis mal embalados.
                           </AlertDescription>
                         </Alert>
                       )}
-                      <ToggleQuestion label="Precisa de embalagem bolha?" checked={carNeedBubbleWrap} onChange={setCarNeedBubbleWrap} />
-                      <ToggleQuestion label="Será necessário mais de uma viagem?" checked={carMultiTrip} onChange={setCarMultiTrip} />
+                      <ToggleQuestion label="Precisa de embalagem bolha?" emoji="📦" checked={carNeedBubbleWrap} onChange={setCarNeedBubbleWrap} />
+                      <ToggleQuestion label="Será necessário mais de uma viagem?" emoji="🔁" checked={carMultiTrip} onChange={setCarMultiTrip} />
                       {carMultiTrip && (
                         <p className="text-sm text-muted-foreground pl-4">✅ Desconto automático será aplicado para múltiplas viagens.</p>
                       )}
@@ -417,23 +495,19 @@ Estamos à disposição! 😊`;
 
               {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
 
-              {!result && (
-                <Button
-                  onClick={() => { trackEvent("button_click", { button: "simulate_freight" }); handleSimulate(); }}
-                  disabled={loading || !routeDistance}
-                  className="w-full gap-2 py-6 text-base font-semibold"
-                  size="lg"
-                >
-                  {loading ? "Calculando..." : <>Calcular Valor <ArrowRight className="h-5 w-5" /></>}
-                </Button>
+              {loading && (
+                <div className="flex items-center justify-center py-4 gap-2 text-sm text-muted-foreground">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  Calculando...
+                </div>
               )}
 
-              {/* Result */}
+              {/* Result - sticky on mobile */}
               {result && (
                 <div className="rounded-xl border-2 border-primary/20 bg-accent/50 p-4 sm:p-6 space-y-4">
                   <div>
                     <h3 className="font-bold text-lg">Resultado da Simulação</h3>
-                    <p className="text-sm text-muted-foreground">{originCityName} → {destCityName} • {mode === "sc" ? "Motoboy" : "Carro"}</p>
+                    <p className="text-sm text-muted-foreground">{getOriginCityName()} → {getDestCityName()} • {mode === "sc" ? "🛵 Motoboy" : "🚗 Carro"}</p>
                   </div>
                   <div className="space-y-2.5 text-sm">
                     <div className="flex justify-between"><span className="text-muted-foreground">Distância</span><span className="font-medium">{result.distance_km.toFixed(1)} km</span></div>
@@ -513,7 +587,7 @@ Estamos à disposição! 😊`;
             <div>
               <h4 className="font-semibold mb-3 text-sm">Cidades Atendidas</h4>
               <ul className="space-y-1.5 text-sm text-muted-foreground">
-                {["Itapema","Porto Belo","Bal. Camboriú","Tijucas","Bombinhas","Itajaí"].map(c => <li key={c}>{c}</li>)}
+                {cities.map(c => <li key={c.id}>{c.name}</li>)}
               </ul>
             </div>
             <div>
@@ -533,11 +607,10 @@ Estamos à disposição! 😊`;
   );
 }
 
-// --- Toggle Question component ---
-function ToggleQuestion({ label, checked, onChange, indent }: { label: string; checked: boolean; onChange: (v: boolean) => void; indent?: boolean }) {
+function ToggleQuestion({ label, checked, onChange, indent, emoji }: { label: string; checked: boolean; onChange: (v: boolean) => void; indent?: boolean; emoji?: string }) {
   return (
-    <div className={`flex items-center justify-between py-2 px-3 rounded-lg bg-background border ${indent ? "ml-4" : ""}`}>
-      <span className="text-sm font-medium">{label}</span>
+    <div className={`flex items-center justify-between py-3 px-3 rounded-lg bg-background border ${indent ? "ml-4" : ""}`}>
+      <span className="text-sm font-medium">{emoji && <span className="mr-1.5">{emoji}</span>}{label}</span>
       <Switch checked={checked} onCheckedChange={onChange} />
     </div>
   );
