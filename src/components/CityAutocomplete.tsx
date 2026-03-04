@@ -19,7 +19,7 @@ export interface CitySelection {
   state: string;
   lat: number;
   lng: number;
-  cityId?: string; // If exists in our DB
+  cityId?: string;
 }
 
 interface CityAutocompleteProps {
@@ -41,6 +41,7 @@ export default function CityAutocomplete({
   const [loading, setLoading] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
   const containerRef = useRef<HTMLDivElement>(null);
+  const dbCitiesRef = useRef<{ id: string; name: string; state: string }[] | null>(null);
 
   useEffect(() => {
     if (value !== undefined && value !== query) setQuery(value);
@@ -56,6 +57,12 @@ export default function CityAutocomplete({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Preload DB cities once
+  useEffect(() => {
+    supabase.from("cities").select("id, name, state").eq("is_active", true)
+      .then(({ data }) => { if (data) dbCitiesRef.current = data; });
+  }, []);
+
   const search = useCallback((q: string) => {
     if (timerRef.current) clearTimeout(timerRef.current);
     if (q.length < 3) {
@@ -63,17 +70,33 @@ export default function CityAutocomplete({
       setIsOpen(false);
       return;
     }
+
+    // Check local DB first for instant results
+    const dbCities = dbCitiesRef.current;
+    if (dbCities) {
+      const localMatches = dbCities.filter(c =>
+        c.name.toLowerCase().includes(q.toLowerCase())
+      );
+      if (localMatches.length > 0) {
+        const fakeResults: NominatimCity[] = localMatches.map(c => ({
+          display_name: `${c.name}, ${c.state}, Brazil`,
+          lat: "0", lon: "0",
+          address: { city: c.name, state: c.state },
+        }));
+        setResults(fakeResults);
+        setIsOpen(true);
+      }
+    }
+
     timerRef.current = setTimeout(async () => {
       setLoading(true);
       try {
-        // Viewbox prioritizing Itapema/SC region but allowing all Brazil
         const params = new URLSearchParams({
           q: `${q}, Brazil`,
           format: "json",
           addressdetails: "1",
           limit: "8",
           countrycodes: "br",
-          featuretype: "city",
           viewbox: "-49.5,-27.8,-48.0,-26.5",
           bounded: "0",
         });
@@ -82,19 +105,40 @@ export default function CityAutocomplete({
           { headers: { "User-Agent": "FreteGarca/1.0" } }
         );
         const data: NominatimCity[] = await res.json();
-        // Filter to only results that look like cities
         const filtered = data.filter((r) => {
           const addr = r.address;
           return addr?.city || addr?.town || addr?.village;
         });
-        setResults(filtered);
-        setIsOpen(filtered.length > 0);
+
+        // Deduplicate: merge local + nominatim, prefer nominatim coords
+        const seen = new Set<string>();
+        const merged: NominatimCity[] = [];
+        for (const r of filtered) {
+          const name = (r.address?.city || r.address?.town || r.address?.village || "").toLowerCase();
+          if (!seen.has(name)) { seen.add(name); merged.push(r); }
+        }
+        // Add local results that weren't in nominatim
+        if (dbCities) {
+          for (const c of dbCities) {
+            if (c.name.toLowerCase().includes(q.toLowerCase()) && !seen.has(c.name.toLowerCase())) {
+              seen.add(c.name.toLowerCase());
+              merged.push({
+                display_name: `${c.name}, ${c.state}, Brazil`,
+                lat: "0", lon: "0",
+                address: { city: c.name, state: c.state },
+              });
+            }
+          }
+        }
+
+        setResults(merged);
+        setIsOpen(merged.length > 0);
       } catch {
         setResults([]);
       } finally {
         setLoading(false);
       }
-    }, 600);
+    }, 350);
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -124,11 +168,7 @@ export default function CityAutocomplete({
     setIsOpen(false);
 
     // Check if city exists in our DB
-    const { data: dbCities } = await supabase
-      .from("cities")
-      .select("id, name")
-      .eq("is_active", true);
-
+    const dbCities = dbCitiesRef.current;
     const match = dbCities?.find(
       (c) => c.name.toLowerCase() === cityName.toLowerCase()
     );

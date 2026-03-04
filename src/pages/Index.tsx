@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, lazy, Suspense, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { trackEvent, logSimulation } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Bike, Car, MapPin, ArrowRight, Globe, Shield, Zap, Clock, MessageCircle, CalendarDays, Package, AlertTriangle, Truck, Plus, RotateCcw } from "lucide-react";
+import { Bike, Car, MapPin, ArrowRight, Globe, Shield, Zap, Clock, MessageCircle, CalendarDays, Package, AlertTriangle, Truck, Plus, RotateCcw, Route } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import HeroSection from "@/components/HeroSection";
 import SocialProof from "@/components/SocialProof";
@@ -19,9 +19,10 @@ import ServicePhotosCarousel from "@/components/ServicePhotosCarousel";
 import ThemeToggle from "@/components/ThemeToggle";
 import AddressAutocomplete, { type AddressSelection } from "@/components/AddressAutocomplete";
 import CityAutocomplete, { type CitySelection } from "@/components/CityAutocomplete";
-import FreightMap from "@/components/FreightMap";
 import logoFrete from "@/assets/logo-frete-garca.png";
 import type { Tables } from "@/integrations/supabase/types";
+
+const FreightMap = lazy(() => import("@/components/FreightMap"));
 
 type City = Tables<"cities">;
 
@@ -54,7 +55,6 @@ const VOLUME_KEYWORDS = ["sofá", "sofa", "geladeira", "fogão", "fogao", "guard
 
 const WHATSAPP_FIXED = "5547988042341";
 
-// Itapema coordinates for distance check
 const ITAPEMA_LAT = -27.09;
 const ITAPEMA_LNG = -48.61;
 
@@ -73,6 +73,31 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+// Nearest-neighbor route optimization
+function optimizeStopOrder(origin: [number, number], stops: (AddressSelection | null)[], dest: [number, number]): number[] {
+  const validIndices = stops.map((s, i) => s ? i : -1).filter(i => i >= 0);
+  if (validIndices.length <= 1) return validIndices;
+
+  const ordered: number[] = [];
+  const remaining = new Set(validIndices);
+  let current = origin;
+
+  while (remaining.size > 0) {
+    let bestIdx = -1;
+    let bestDist = Infinity;
+    for (const idx of remaining) {
+      const s = stops[idx]!;
+      const d = haversineDistance(current[0], current[1], s.lat, s.lng);
+      if (d < bestDist) { bestDist = d; bestIdx = idx; }
+    }
+    ordered.push(bestIdx);
+    const s = stops[bestIdx]!;
+    current = [s.lat, s.lng];
+    remaining.delete(bestIdx);
+  }
+  return ordered;
+}
+
 export default function Index() {
   const simulatorRef = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<"sc" | "national">("sc");
@@ -82,7 +107,6 @@ export default function Index() {
   const [navVisible, setNavVisible] = useState(true);
   const lastScrollY = useRef(0);
 
-  // Prevent concurrent calculations
   const isCalculatingRef = useRef(false);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
@@ -110,8 +134,9 @@ export default function Index() {
   const [motoExtraStops, setMotoExtraStops] = useState(0);
   const [extraStopAddresses, setExtraStopAddresses] = useState<(AddressSelection | null)[]>([]);
   const [extraStopRefs, setExtraStopRefs] = useState<string[]>([]);
+  const [optimizeRoute, setOptimizeRoute] = useState(false);
 
-  // Car state - now using CityAutocomplete
+  // Car state
   const [carOriginCityId, setCarOriginCityId] = useState("");
   const [carOriginCityName, setCarOriginCityName] = useState("");
   const [carDestCityId, setCarDestCityId] = useState("");
@@ -121,8 +146,6 @@ export default function Index() {
   const [carOriginRef, setCarOriginRef] = useState("");
   const [carDestRef, setCarDestRef] = useState("");
   const [carDestName, setCarDestName] = useState("");
-
-  // Origin distance warning for car
   const [originFarWarning, setOriginFarWarning] = useState(false);
 
   // Car-specific fields
@@ -191,7 +214,6 @@ export default function Index() {
   const handleCarOriginSelect = useCallback((sel: AddressSelection) => {
     setCarOriginAddress(sel);
     setOriginCoords([sel.lat, sel.lng]);
-    // Check distance from Itapema
     const dist = haversineDistance(sel.lat, sel.lng, ITAPEMA_LAT, ITAPEMA_LNG);
     setOriginFarWarning(dist > 50);
   }, []);
@@ -226,7 +248,45 @@ export default function Index() {
   useEffect(() => { setOriginAddress(null); setOriginCoords(null); }, [originCityId]);
   useEffect(() => { setDestAddress(null); setDestCoords(null); }, [destCityId]);
 
-  // Stable handleSimulate via useCallback
+  // Compute extra stop coords for map (with optional optimization)
+  const extraStopCoords = useMemo((): [number, number][] => {
+    const validStops = extraStopAddresses.filter(Boolean) as AddressSelection[];
+    if (validStops.length === 0) return [];
+    
+    if (optimizeRoute && originCoords && destCoords && validStops.length > 1) {
+      const order = optimizeStopOrder(originCoords, extraStopAddresses, destCoords);
+      return order.map(i => {
+        const s = extraStopAddresses[i]!;
+        return [s.lat, s.lng] as [number, number];
+      });
+    }
+    
+    return validStops.map(s => [s.lat, s.lng] as [number, number]);
+  }, [extraStopAddresses, optimizeRoute, originCoords, destCoords]);
+
+  // Determine which city each stop belongs to (for pricing)
+  const getStopCityIds = useCallback((): { city_id?: string; lat: number; lng: number }[] => {
+    const validStops = extraStopAddresses.filter(Boolean) as AddressSelection[];
+    if (validStops.length === 0) return [];
+
+    const originCity = cities.find(c => c.id === originCityId);
+    const destCity = cities.find(c => c.id === destCityId);
+
+    return validStops.map(stop => {
+      // Use haversine to determine if stop is closer to origin or dest address
+      let closerCityId = originCityId;
+      if (originCoords && destCoords) {
+        const distToOrigin = haversineDistance(stop.lat, stop.lng, originCoords[0], originCoords[1]);
+        const distToDest = haversineDistance(stop.lat, stop.lng, destCoords[0], destCoords[1]);
+        closerCityId = distToDest < distToOrigin ? destCityId : originCityId;
+      }
+      return { city_id: closerCityId || undefined, lat: stop.lat, lng: stop.lng };
+    });
+  }, [extraStopAddresses, originCityId, destCityId, originCoords, destCoords, cities]);
+
+  // Stable ref for handleSimulate to avoid loop
+  const handleSimulateRef = useRef<(distance: number) => Promise<void>>();
+
   const handleSimulate = useCallback(async (distance: number) => {
     if (isCalculatingRef.current) return;
     isCalculatingRef.current = true;
@@ -248,6 +308,8 @@ export default function Index() {
         fragile: carHasFragile,
       } : {};
 
+      const extraStops = !isCar ? getStopCityIds() : [];
+
       const body = isCar
         ? {
             mode: carOriginCityId && carDestCityId ? "sc" : "national",
@@ -265,7 +327,7 @@ export default function Index() {
             vehicle_type: "moto",
             distance_km: distance,
             moto_return: motoReturn,
-            moto_extra_stops: motoExtraStops,
+            extra_stops: extraStops,
           };
 
       const { data, error: fnError } = await supabase.functions.invoke("calculate-freight", { body });
@@ -290,17 +352,22 @@ export default function Index() {
       setLoading(false);
       isCalculatingRef.current = false;
     }
-  }, [mode, carItemDescription, carItemDetails, carNeedHelper, carNeedStairs, carIsApartment, carHasElevator, carNeedBubbleWrap, carHasFragile, carMultiTrip, carOriginCityId, carDestCityId, originCityId, destCityId, motoReturn, motoExtraStops, routeDuration, toast]);
+  }, [mode, carItemDescription, carItemDetails, carNeedHelper, carNeedStairs, carIsApartment, carHasElevator, carNeedBubbleWrap, carHasFragile, carMultiTrip, carOriginCityId, carDestCityId, originCityId, destCityId, motoReturn, routeDuration, toast, getStopCityIds]);
 
-  // Auto-calculate when route is ready — debounced
+  // Keep ref always pointing to latest handleSimulate
+  useEffect(() => {
+    handleSimulateRef.current = handleSimulate;
+  }, [handleSimulate]);
+
+  // Auto-calculate when route changes — uses ref to avoid loop from toggle changes
   useEffect(() => {
     if (!routeDistance || routeDistance <= 0) return;
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     debounceTimerRef.current = setTimeout(() => {
-      handleSimulate(routeDistance);
-    }, 500);
+      handleSimulateRef.current?.(routeDistance);
+    }, 300);
     return () => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); };
-  }, [routeDistance, handleSimulate]);
+  }, [routeDistance]);
 
   // Volume alert for car
   useEffect(() => {
@@ -527,8 +594,16 @@ Realizamos apenas o transporte.`;
                           </Button>
                         </div>
                       </div>
-                      {motoExtraStops > 0 && <p className="text-xs text-muted-foreground pl-4">✅ {motoExtraStops} parada(s) extra(s) — valor adicional por parada baseado no valor mínimo da cidade.</p>}
+                      {motoExtraStops > 0 && <p className="text-xs text-muted-foreground pl-4">✅ {motoExtraStops} parada(s) extra(s) — valor base da cidade de cada parada será adicionado.</p>}
                     </div>
+
+                    {/* Optimize route toggle */}
+                    {motoExtraStops > 0 && (
+                      <ToggleQuestion label="Otimizar rota?" emoji="🗺️" checked={optimizeRoute} onChange={setOptimizeRoute} />
+                    )}
+                    {optimizeRoute && motoExtraStops > 0 && (
+                      <p className="text-xs text-muted-foreground pl-4">✅ As paradas serão reordenadas para a rota mais eficiente.</p>
+                    )}
 
                     {/* Extra stop address blocks */}
                     {motoExtraStops > 0 && (
@@ -539,8 +614,8 @@ Realizamos apenas o transporte.`;
                               <MapPin className="h-3.5 w-3.5" /> Parada {i + 1}
                             </div>
                             <AddressAutocomplete
-                              cityName={cities.find(c => c.id === originCityId)?.name || ""}
-                              disabled={!originCityId}
+                              cityName={cities.find(c => c.id === originCityId)?.name || cities.find(c => c.id === destCityId)?.name || ""}
+                              disabled={!originCityId && !destCityId}
                               placeholder={`Endereço da parada ${i + 1}`}
                               onSelect={(sel) => handleExtraStopSelect(i, sel)}
                             />
@@ -690,7 +765,14 @@ Realizamos apenas o transporte.`;
 
               {/* Map */}
               {(originCoords || destCoords) && (
-                <FreightMap originCoords={originCoords} destCoords={destCoords} onRouteCalculated={handleRouteCalculated} />
+                <Suspense fallback={<div className="w-full h-[300px] rounded-xl bg-muted animate-pulse" />}>
+                  <FreightMap
+                    originCoords={originCoords}
+                    destCoords={destCoords}
+                    extraStopCoords={extraStopCoords}
+                    onRouteCalculated={handleRouteCalculated}
+                  />
+                </Suspense>
               )}
 
               {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
