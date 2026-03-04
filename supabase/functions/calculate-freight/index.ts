@@ -140,34 +140,34 @@ Deno.serve(async (req) => {
           for (const stop of extraStops) {
             if (stop.city_id && isValidUUID(stop.city_id)) {
               // Lookup city
-              const { data: stopCity } = await supabase.from("cities").select("base_value").eq("id", stop.city_id).single();
-              motoExtras += num(stopCity?.base_value, num(originCity.base_value));
+              const { data: stopCity } = await supabase.from("cities").select("min_value").eq("id", stop.city_id).single();
+              motoExtras += num(stopCity?.min_value, num(originCity.min_value));
             } else if (stop.lat != null && stop.lng != null) {
               // Determine nearest city via haversine (simplified: origin vs dest)
               // We don't have city coords, so use the city_id that frontend determined
-              motoExtras += num(originCity.base_value);
+              motoExtras += num(originCity.min_value);
             } else {
-              motoExtras += num(originCity.base_value);
+              motoExtras += num(originCity.min_value);
             }
           }
         } else {
           // Legacy: flat count
           const extraStopCount = Math.max(0, Math.min(10, num(body.moto_extra_stops)));
           if (extraStopCount > 0) {
-            motoExtras += extraStopCount * num(originCity.base_value);
+            motoExtras += extraStopCount * num(originCity.min_value);
           }
         }
       }
 
-      const baseForCalc = !isMoto ? Math.max(cityBaseValue, carMinValue) : cityBaseValue;
+      const baseForCalc = isMoto ? num(destCity.base_value) : Math.max(cityBaseValue, carMinValue);
 
       // Same city = only base value (no KM charge). Inter-city = base + KM displacement.
       const isSameCity = origin_city_id === destination_city_id;
       const valorOperacional = isSameCity
         ? baseForCalc + additionalsTotal + motoExtras
         : baseForCalc + (distanceKm * pricePerKm) * combinedMult + additionalsTotal + motoExtras;
-      // Same city: no margin applied (base_value IS the final price). Inter-city: apply margin.
-      const margemTotal = isSameCity ? 0 : calcMargin(settings as Record<string, unknown>, conditions, distanceKm);
+      // Moto: nunca aplica margem. Carro mesma cidade: sem margem. Carro inter: com margem.
+      const margemTotal = isMoto ? 0 : (isSameCity ? 0 : calcMargin(settings as Record<string, unknown>, conditions, distanceKm));
 
       let valorFinal = Math.ceil(valorOperacional * (1 + margemTotal / 100));
       const cityMinValue = Math.max(num(originCity.min_value), num(destCity.min_value));
