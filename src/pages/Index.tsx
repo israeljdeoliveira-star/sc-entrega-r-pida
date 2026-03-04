@@ -18,6 +18,7 @@ import ServicesSection from "@/components/ServicesSection";
 import ServicePhotosCarousel from "@/components/ServicePhotosCarousel";
 import ThemeToggle from "@/components/ThemeToggle";
 import AddressAutocomplete, { type AddressSelection } from "@/components/AddressAutocomplete";
+import CityAutocomplete, { type CitySelection } from "@/components/CityAutocomplete";
 import FreightMap from "@/components/FreightMap";
 import logoFrete from "@/assets/logo-frete-garca.png";
 import type { Tables } from "@/integrations/supabase/types";
@@ -53,8 +54,23 @@ const VOLUME_KEYWORDS = ["sofá", "sofa", "geladeira", "fogão", "fogao", "guard
 
 const WHATSAPP_FIXED = "5547988042341";
 
+// Itapema coordinates for distance check
+const ITAPEMA_LAT = -27.09;
+const ITAPEMA_LNG = -48.61;
+
 function buildGoogleMapsLink(lat: number, lng: number): string {
   return `https://www.google.com/maps?q=${lat},${lng}`;
+}
+
+function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 export default function Index() {
@@ -65,6 +81,10 @@ export default function Index() {
 
   const [navVisible, setNavVisible] = useState(true);
   const lastScrollY = useRef(0);
+
+  // Prevent concurrent calculations
+  const isCalculatingRef = useRef(false);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -83,6 +103,7 @@ export default function Index() {
   const [destAddress, setDestAddress] = useState<AddressSelection | null>(null);
   const [originRef, setOriginRef] = useState("");
   const [destRef, setDestRef] = useState("");
+  const [destName, setDestName] = useState("");
   const [weight, setWeight] = useState("");
   const [category, setCategory] = useState("");
   const [motoReturn, setMotoReturn] = useState(false);
@@ -90,13 +111,19 @@ export default function Index() {
   const [extraStopAddresses, setExtraStopAddresses] = useState<(AddressSelection | null)[]>([]);
   const [extraStopRefs, setExtraStopRefs] = useState<string[]>([]);
 
-  // Car state
+  // Car state - now using CityAutocomplete
   const [carOriginCityId, setCarOriginCityId] = useState("");
+  const [carOriginCityName, setCarOriginCityName] = useState("");
   const [carDestCityId, setCarDestCityId] = useState("");
+  const [carDestCityName, setCarDestCityName] = useState("");
   const [carOriginAddress, setCarOriginAddress] = useState<AddressSelection | null>(null);
   const [carDestAddress, setCarDestAddress] = useState<AddressSelection | null>(null);
   const [carOriginRef, setCarOriginRef] = useState("");
   const [carDestRef, setCarDestRef] = useState("");
+  const [carDestName, setCarDestName] = useState("");
+
+  // Origin distance warning for car
+  const [originFarWarning, setOriginFarWarning] = useState(false);
 
   // Car-specific fields
   const [carItemDescription, setCarItemDescription] = useState("");
@@ -121,7 +148,13 @@ export default function Index() {
   const [error, setError] = useState("");
   const [volumeAlert, setVolumeAlert] = useState(false);
 
-  const scrollToSimulator = () => simulatorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  const scrollToSimulator = () => {
+    if (simulatorRef.current) {
+      const headerOffset = 80;
+      const elementPosition = simulatorRef.current.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo({ top: elementPosition - headerOffset, behavior: "smooth" });
+    }
+  };
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
   const scrollToSection = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
 
@@ -146,18 +179,39 @@ export default function Index() {
 
   const getOriginCityName = () => {
     if (mode === "sc") return cities.find(c => c.id === originCityId)?.name || "";
-    return cities.find(c => c.id === carOriginCityId)?.name || "";
+    return carOriginCityName;
   };
   const getDestCityName = () => {
     if (mode === "sc") return cities.find(c => c.id === destCityId)?.name || "";
-    return cities.find(c => c.id === carDestCityId)?.name || "";
+    return carDestCityName;
   };
 
   const handleOriginSelect = useCallback((sel: AddressSelection) => { setOriginAddress(sel); setOriginCoords([sel.lat, sel.lng]); }, []);
   const handleDestSelect = useCallback((sel: AddressSelection) => { setDestAddress(sel); setDestCoords([sel.lat, sel.lng]); }, []);
-  const handleCarOriginSelect = useCallback((sel: AddressSelection) => { setCarOriginAddress(sel); setOriginCoords([sel.lat, sel.lng]); }, []);
+  const handleCarOriginSelect = useCallback((sel: AddressSelection) => {
+    setCarOriginAddress(sel);
+    setOriginCoords([sel.lat, sel.lng]);
+    // Check distance from Itapema
+    const dist = haversineDistance(sel.lat, sel.lng, ITAPEMA_LAT, ITAPEMA_LNG);
+    setOriginFarWarning(dist > 50);
+  }, []);
   const handleCarDestSelect = useCallback((sel: AddressSelection) => { setCarDestAddress(sel); setDestCoords([sel.lat, sel.lng]); }, []);
   const handleRouteCalculated = useCallback((distKm: number, durMin: number) => { setRouteDistance(distKm); setRouteDuration(durMin); }, []);
+
+  const handleCarOriginCitySelect = useCallback((sel: CitySelection) => {
+    setCarOriginCityId(sel.cityId || "");
+    setCarOriginCityName(sel.cityName);
+    setCarOriginAddress(null);
+    setOriginCoords(null);
+    setOriginFarWarning(false);
+  }, []);
+
+  const handleCarDestCitySelect = useCallback((sel: CitySelection) => {
+    setCarDestCityId(sel.cityId || "");
+    setCarDestCityName(sel.cityName);
+    setCarDestAddress(null);
+    setDestCoords(null);
+  }, []);
 
   const handleExtraStopSelect = useCallback((index: number, sel: AddressSelection) => {
     setExtraStopAddresses(prev => {
@@ -171,27 +225,15 @@ export default function Index() {
   useEffect(() => { setResult(null); setError(""); setOriginCoords(null); setDestCoords(null); setRouteDistance(null); setRouteDuration(null); }, [mode]);
   useEffect(() => { setOriginAddress(null); setOriginCoords(null); }, [originCityId]);
   useEffect(() => { setDestAddress(null); setDestCoords(null); }, [destCityId]);
-  useEffect(() => { setCarOriginAddress(null); setOriginCoords(null); }, [carOriginCityId]);
-  useEffect(() => { setCarDestAddress(null); setDestCoords(null); }, [carDestCityId]);
 
-  // Auto-calculate when route is ready
-  useEffect(() => {
-    if (routeDistance && routeDistance > 0) handleSimulate();
-  }, [routeDistance, motoReturn, motoExtraStops, carNeedHelper, carNeedStairs, carIsApartment, carHasElevator, carHasFragile, carNeedBubbleWrap, carMultiTrip]);
-
-  // Volume alert for car
-  useEffect(() => {
-    const text = (carItemDescription + " " + carItemDetails).toLowerCase();
-    const hits = VOLUME_KEYWORDS.filter(kw => text.includes(kw));
-    setVolumeAlert(hits.length >= 2);
-  }, [carItemDescription, carItemDetails]);
-
-  const handleSimulate = async () => {
-    if (!routeDistance) return;
+  // Stable handleSimulate via useCallback
+  const handleSimulate = useCallback(async (distance: number) => {
+    if (isCalculatingRef.current) return;
+    isCalculatingRef.current = true;
 
     if (mode === "national") {
-      if (!carItemDescription.trim()) { setError("Informe o que será transportado."); return; }
-      if (!carItemDetails.trim()) { setError("Descreva os itens a serem transportados."); return; }
+      if (!carItemDescription.trim()) { setError("Informe o que será transportado."); isCalculatingRef.current = false; return; }
+      if (!carItemDetails.trim()) { setError("Descreva os itens a serem transportados."); isCalculatingRef.current = false; return; }
     }
 
     setError(""); setResult(null); setLoading(true);
@@ -208,11 +250,11 @@ export default function Index() {
 
       const body = isCar
         ? {
-            mode: "sc",
-            origin_city_id: carOriginCityId,
-            destination_city_id: carDestCityId,
+            mode: carOriginCityId && carDestCityId ? "sc" : "national",
+            origin_city_id: carOriginCityId || undefined,
+            destination_city_id: carDestCityId || undefined,
             vehicle_type: "car",
-            distance_km: routeDistance,
+            distance_km: distance,
             car_additionals: carAdditionals,
             multi_trip: carMultiTrip,
           }
@@ -221,7 +263,7 @@ export default function Index() {
             origin_city_id: originCityId,
             destination_city_id: destCityId,
             vehicle_type: "moto",
-            distance_km: routeDistance,
+            distance_km: distance,
             moto_return: motoReturn,
             moto_extra_stops: motoExtraStops,
           };
@@ -236,14 +278,36 @@ export default function Index() {
         origin_city: getOriginCityName() || undefined,
         destination_city: getDestCityName() || undefined,
         vehicle_type: isCar ? "car" : "moto",
-        mode: "sc", distance_km: data.distance_km, final_value: data.final_value,
+        mode: carOriginCityId && carDestCityId ? "sc" : "national",
+        distance_km: data.distance_km,
+        final_value: data.final_value,
       });
-      trackEvent("simulation_completed", { mode, distance: routeDistance });
+      trackEvent("simulation_completed", { mode, distance });
     } catch (err: any) {
       setError(err.message || "Erro ao calcular frete.");
       toast({ title: "Erro", description: err.message, variant: "destructive" });
-    } finally { setLoading(false); }
-  };
+    } finally {
+      setLoading(false);
+      isCalculatingRef.current = false;
+    }
+  }, [mode, carItemDescription, carItemDetails, carNeedHelper, carNeedStairs, carIsApartment, carHasElevator, carNeedBubbleWrap, carHasFragile, carMultiTrip, carOriginCityId, carDestCityId, originCityId, destCityId, motoReturn, motoExtraStops, routeDuration, toast]);
+
+  // Auto-calculate when route is ready — debounced
+  useEffect(() => {
+    if (!routeDistance || routeDistance <= 0) return;
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      handleSimulate(routeDistance);
+    }, 500);
+    return () => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); };
+  }, [routeDistance, handleSimulate]);
+
+  // Volume alert for car
+  useEffect(() => {
+    const text = (carItemDescription + " " + carItemDetails).toLowerCase();
+    const hits = VOLUME_KEYWORDS.filter(kw => text.includes(kw));
+    setVolumeAlert(hits.length >= 2);
+  }, [carItemDescription, carItemDetails]);
 
   const buildWhatsAppUrl = () => {
     if (!result) return "#";
@@ -254,6 +318,7 @@ export default function Index() {
     const dCityName = getDestCityName();
     const oRef = mode === "sc" ? originRef : carOriginRef;
     const dRef = mode === "sc" ? destRef : carDestRef;
+    const dName = mode === "sc" ? destName : carDestName;
 
     const originText = `${oAddr?.street || ""}${oAddr?.houseNumber ? `, ${oAddr.houseNumber}` : ""} - ${oAddr?.neighborhood || ""} - ${oCityName}`;
     const destText = `${dAddr?.street || ""}${dAddr?.houseNumber ? `, ${dAddr.houseNumber}` : ""} - ${dAddr?.neighborhood || ""} - ${dCityName}`;
@@ -269,7 +334,7 @@ Segue a simulação do seu frete:
 
 📍 Coleta: ${originText}${oRef ? `\n📌 Ref: ${oRef}` : ""}${originMapLink ? `\n🗺️ Mapa: ${originMapLink}` : ""}
 
-📍 Entrega: ${destText}${dRef ? `\n📌 Ref: ${dRef}` : ""}${destMapLink ? `\n🗺️ Mapa: ${destMapLink}` : ""}`;
+📍 Entrega: ${destText}${dName ? `\n👤 Destinatário: ${dName}` : ""}${dRef ? `\n📌 Ref: ${dRef}` : ""}${destMapLink ? `\n🗺️ Mapa: ${destMapLink}` : ""}`;
 
     // Extra stops
     if (mode === "sc" && motoExtraStops > 0) {
@@ -406,6 +471,10 @@ Realizamos apenas o transporte.`;
                       <AddressAutocomplete cityName={cities.find(c => c.id === destCityId)?.name || ""} disabled={!destCityId} placeholder="Ex: Rua Brasil, 123" onSelect={handleDestSelect} />
                     </div>
                     <div className="space-y-1">
+                      <Label className="text-sm">Nome do destinatário</Label>
+                      <Input value={destName} onChange={e => setDestName(e.target.value)} placeholder="Nome de quem vai receber" className="text-sm" />
+                    </div>
+                    <div className="space-y-1">
                       <Label className="text-sm text-muted-foreground">Ponto de referência</Label>
                       <Input value={destRef} onChange={e => setDestRef(e.target.value)} placeholder="Ex: Em frente à padaria..." className="text-sm" />
                     </div>
@@ -429,8 +498,13 @@ Realizamos apenas o transporte.`;
                       <Label className="text-sm">Peso estimado</Label>
                       <Select value={weight} onValueChange={setWeight}>
                         <SelectTrigger><SelectValue placeholder="Selecione o peso" /></SelectTrigger>
-                        <SelectContent>{WEIGHT_OPTIONS.map(w => <SelectItem key={w.value} value={w.value}>{w.example}</SelectItem>)}</SelectContent>
+                        <SelectContent>{WEIGHT_OPTIONS.map(w => <SelectItem key={w.value} value={w.value}>{w.label}</SelectItem>)}</SelectContent>
                       </Select>
+                      {selectedWeight && (
+                        <p className="text-xs text-muted-foreground mt-1 pl-1">
+                          💡 Equivale a: {selectedWeight.example}
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -504,15 +578,30 @@ Realizamos apenas o transporte.`;
                     <div className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-4 w-4 text-primary" /> 📍 Origem</div>
                     <div className="space-y-2">
                       <Label className="text-sm">Cidade</Label>
-                      <Select value={carOriginCityId} onValueChange={setCarOriginCityId}>
-                        <SelectTrigger><SelectValue placeholder="Selecione a cidade" /></SelectTrigger>
-                        <SelectContent>{cities.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-                      </Select>
+                      <CityAutocomplete
+                        placeholder="Digite a cidade de origem..."
+                        onSelect={handleCarOriginCitySelect}
+                      />
                     </div>
-                    <div className="space-y-1">
-                      <Label className="text-sm">Rua + Número</Label>
-                      <AddressAutocomplete cityName={cities.find(c => c.id === carOriginCityId)?.name || ""} disabled={!carOriginCityId} placeholder="Ex: Rua 230, 570" onSelect={handleCarOriginSelect} />
-                    </div>
+                    {carOriginCityName && (
+                      <div className="space-y-1">
+                        <Label className="text-sm">Rua + Número</Label>
+                        <AddressAutocomplete
+                          cityName={carOriginCityName}
+                          disabled={!carOriginCityName}
+                          placeholder="Ex: Rua 230, 570"
+                          onSelect={handleCarOriginSelect}
+                        />
+                      </div>
+                    )}
+                    {originFarWarning && (
+                      <Alert className="border-yellow-400/50 bg-yellow-50 dark:bg-yellow-950/30">
+                        <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                        <AlertDescription className="text-sm text-yellow-800 dark:text-yellow-200">
+                          📍 Somos de Itapema/SC. A distância da origem pode impactar o valor do frete.
+                        </AlertDescription>
+                      </Alert>
+                    )}
                     <div className="space-y-1">
                       <Label className="text-sm text-muted-foreground">Ponto de referência</Label>
                       <Input value={carOriginRef} onChange={e => setCarOriginRef(e.target.value)} placeholder="Ex: Próximo ao mercado, casa azul..." className="text-sm" />
@@ -526,14 +615,25 @@ Realizamos apenas o transporte.`;
                     <div className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-4 w-4 text-destructive" /> 📍 Destino</div>
                     <div className="space-y-2">
                       <Label className="text-sm">Cidade</Label>
-                      <Select value={carDestCityId} onValueChange={setCarDestCityId}>
-                        <SelectTrigger><SelectValue placeholder="Selecione a cidade" /></SelectTrigger>
-                        <SelectContent>{cities.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-                      </Select>
+                      <CityAutocomplete
+                        placeholder="Digite a cidade de destino..."
+                        onSelect={handleCarDestCitySelect}
+                      />
                     </div>
+                    {carDestCityName && (
+                      <div className="space-y-1">
+                        <Label className="text-sm">Rua + Número</Label>
+                        <AddressAutocomplete
+                          cityName={carDestCityName}
+                          disabled={!carDestCityName}
+                          placeholder="Ex: Rua 230, 570"
+                          onSelect={handleCarDestSelect}
+                        />
+                      </div>
+                    )}
                     <div className="space-y-1">
-                      <Label className="text-sm">Rua + Número</Label>
-                      <AddressAutocomplete cityName={cities.find(c => c.id === carDestCityId)?.name || ""} disabled={!carDestCityId} placeholder="Ex: Rua 230, 570" onSelect={handleCarDestSelect} />
+                      <Label className="text-sm">Nome do destinatário</Label>
+                      <Input value={carDestName} onChange={e => setCarDestName(e.target.value)} placeholder="Nome de quem vai receber" className="text-sm" />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-sm text-muted-foreground">Ponto de referência</Label>
