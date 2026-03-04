@@ -1,77 +1,77 @@
 
 
-## Plano: Correções Múltiplas no Simulador
+## Plano: Otimização, Paradas Inteligentes, Mapa e Fix CityAutocomplete
 
-### Problemas Identificados
+### 1. Fix CityAutocomplete — Porto Belo e cidades pequenas não aparecem
 
-1. **Loop infinito no cálculo** — O `useEffect` auto-calculate dispara `handleSimulate` que atualiza state, causando re-renders. A função `handleSimulate` não é estável (não usa `useCallback`), e o efeito pode re-disparar ao mudar toggles durante o cálculo.
+**Problema**: O Nominatim usa `featuretype=city` que exclui cidades menores classificadas como "town" ou "village". Porto Belo é classificado como "town".
 
-2. **Seletor de peso mostra exemplo junto** — O `SelectItem` exibe `w.example` (ex: "📦 Pacote de Café (~500g)") em vez de apenas o peso. O exemplo deveria aparecer abaixo do seletor, não dentro dele.
+**Solução** em `CityAutocomplete.tsx`:
+- Remover o parâmetro `featuretype: "city"` da busca Nominatim
+- Reduzir o debounce de 600ms para 350ms para resposta mais rápida
+- Primeiro verificar se a cidade existe no banco local (`cities` table) antes de ir ao Nominatim — se encontrar match local, retornar imediatamente
+- Manter o filtro por `addr.city || addr.town || addr.village`
 
-3. **"Simular Frete Agora" cai no meio do formulário** — `scrollToSimulator` usa `block: "center"` no ref `simulatorRef` que aponta para a `section`. Deveria rolar para o topo da seção (tabs).
+### 2. Paradas extras com cobrança por base_value da cidade
 
-4. **Carro limita cidades cadastradas** — Usa dropdown com `cities` do banco (apenas 6 cidades SC). Precisa ser campo de texto livre com autocomplete para qualquer cidade do Brasil.
+**Lógica atual**: A edge function cobra `originCity.min_value` por parada. O usuário quer cobrar `base_value` da cidade onde a parada acontece.
 
-5. **Falta campo "Nome do destinatário"** no destino.
+**Solução** em `Index.tsx` e `calculate-freight/index.ts`:
+- Cada parada extra precisa informar em qual cidade está (origem ou destino)
+- No frontend, ao selecionar endereço da parada, determinar se está mais perto da cidade de origem ou destino via Haversine
+- Enviar array `extra_stops` com `{ city_id, lat, lng }` para a edge function
+- Na edge function, para cada parada: buscar o `base_value` da cidade correspondente e somar ao total
+- Se a cidade da parada não estiver cadastrada, usar um valor base padrão
 
-6. **Falta aviso quando origem > 50km de Itapema**.
+### 3. Opção "Otimizar Rota" para paradas
 
----
+**Solução** em `Index.tsx`:
+- Adicionar toggle `optimizeRoute` (default: false) que aparece quando `motoExtraStops > 0`
+- Quando ativado, reordenar as paradas usando algoritmo nearest-neighbor (greedy TSP) baseado nas coordenadas
+- Exibir a ordem otimizada para o usuário antes de calcular
+- Cada parada gera um pino adicional no mapa
 
-### Soluções — Arquivo: `src/pages/Index.tsx`
+### 4. Pinos extras no mapa para paradas
 
-#### 1. Fix loop infinito
-- Envolver `handleSimulate` em `useCallback` com deps corretas
-- Adicionar `useRef` de controle (`isCalculating`) para evitar chamadas concorrentes
-- No `useEffect` auto-calculate, usar debounce de 500ms e verificar `isCalculating`
+**Solução** em `FreightMap.tsx`:
+- Adicionar prop `extraStopCoords: [number, number][]`
+- Renderizar marcadores azuis para cada parada intermediária
+- Quando houver paradas, calcular rota OSRM passando por todos os pontos na ordem (origin → stops → destination)
+- Ajustar `fitBounds` para incluir todos os pinos
 
-#### 2. Seletor de peso: mostrar só peso, exemplo embaixo
-- No `SelectContent`, trocar `w.example` por `w.label` (ex: "1 kg")
-- Abaixo do `Select`, renderizar o `selectedWeight?.example` como texto de referência:
-  ```
-  📚 Equivale a: Livro Grande (~1kg)
-  ```
+### 5. Mapa com cor menos escura
 
-#### 3. Scroll "Simular Frete Agora" → topo da seção
-- Mudar `scrollToSimulator` para usar `block: "start"` em vez de `"center"`
-- Adicionar offset negativo para compensar o header fixo
+**Solução** em `FreightMap.tsx`:
+- Trocar de `dark_all` para `voyager` do CartoDB: `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png`
+- Tema moderno, neutro, legível — funciona bem em light e dark mode
+- Manter a cor da rota amarela para contraste
 
-#### 4. Carro: campo cidade livre para todo Brasil
-- Trocar o `Select` de cidade (origem e destino carro) por um `Input` com autocomplete via Nominatim
-- Criar componente `CityAutocomplete` que busca cidades no Nominatim com `type=city`
-- Priorizar resultados próximos a Itapema (viewbox parameter)
-- Se a cidade digitada estiver no banco `cities`, usar seu `id`; senão, usar modo "national" na edge function
-- Quando a cidade for selecionada, alimentar o `AddressAutocomplete` existente com o nome da cidade
+### 6. Otimização de performance
 
-#### 5. Aviso origem > 50km de Itapema
-- Calcular distância entre coordenadas de origem e coordenadas fixas de Itapema (-27.09, -48.61) usando fórmula Haversine
-- Se > 50km, mostrar `Alert` amarelo: "📍 Somos de Itapema/SC. A distância da origem pode impactar o valor."
+**Solução** em `Index.tsx`:
+- Reduzir debounce de cálculo de 500ms para 300ms
+- Lazy load do componente `FreightMap` com `React.lazy` + `Suspense`
+- Memoizar componentes pesados com `useMemo`
+- No `CityAutocomplete`, reduzir debounce para 350ms
 
-#### 6. Campo "Nome do destinatário"
-- Adicionar state `destName` e `carDestName`
-- Adicionar `Input` com placeholder "Nome de quem vai receber" abaixo do endereço de destino (moto e carro)
-- Incluir na mensagem do WhatsApp
+### 7. Fix loop infinito de cálculo
 
----
+**Problema**: O `handleSimulate` no `useCallback` tem muitas dependências (toggles). Mudar qualquer toggle recria a função, que dispara o `useEffect` auto-calculate novamente.
 
-### Arquivo: `src/components/CityAutocomplete.tsx` (novo)
-- Input com autocomplete via Nominatim para cidades brasileiras
-- Prop `onSelect(cityName, state, lat, lng)` 
-- Busca com viewbox priorizando região de Itapema
-- Se a cidade existir na tabela `cities`, retorna também o `cityId`
-
-### Arquivo: `src/components/AddressAutocomplete.tsx`
-- Sem mudanças necessárias (já aceita `cityName` como prop)
-
-### Arquivo: `supabase/functions/calculate-freight/index.ts`
-- Sem mudanças necessárias (já suporta modo "sc" com city IDs e modo "national" sem)
+**Solução**:
+- Separar o `useEffect` auto-calculate para depender apenas de `routeDistance` (não de `handleSimulate`)
+- Usar um ref para armazenar a versão mais recente de `handleSimulate`
+- O effect chama `handleSimulateRef.current(routeDistance)` — assim não recria quando toggles mudam
+- Os toggles só recalculam quando o usuário clica explicitamente ou quando uma nova rota é calculada
 
 ---
 
-### Resumo de arquivos alterados
+### Arquivos alterados
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `src/pages/Index.tsx` | Fix loop, peso, scroll, cidade livre, aviso 50km, nome destinatário |
-| `src/components/CityAutocomplete.tsx` | Novo componente autocomplete de cidades |
+| `src/components/CityAutocomplete.tsx` | Fix Porto Belo, remover featuretype, reduzir debounce, priorizar banco local |
+| `src/components/FreightMap.tsx` | Tema voyager, pinos de paradas extras, rota multi-waypoint |
+| `src/pages/Index.tsx` | Paradas com base_value, otimizar rota, fix loop, lazy map, performance |
+| `supabase/functions/calculate-freight/index.ts` | Cobrar base_value por parada baseado na cidade |
 
