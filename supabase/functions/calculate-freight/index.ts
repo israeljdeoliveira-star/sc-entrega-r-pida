@@ -166,7 +166,8 @@ Deno.serve(async (req) => {
       const valorOperacional = isSameCity
         ? baseForCalc + additionalsTotal + motoExtras
         : baseForCalc + (distanceKm * pricePerKm) * combinedMult + additionalsTotal + motoExtras;
-      const margemTotal = calcMargin(settings as Record<string, unknown>, conditions, distanceKm);
+      // Same city: no margin applied (base_value IS the final price). Inter-city: apply margin.
+      const margemTotal = isSameCity ? 0 : calcMargin(settings as Record<string, unknown>, conditions, distanceKm);
 
       let valorFinal = Math.ceil(valorOperacional * (1 + margemTotal / 100));
       const cityMinValue = Math.max(num(originCity.min_value), num(destCity.min_value));
