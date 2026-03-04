@@ -39,9 +39,43 @@ interface AddressAutocompleteProps {
   onSelect: (selection: AddressSelection) => void;
 }
 
+/** Normalize query: trim, collapse spaces, fix commas glued to numbers */
+function normalizeQuery(input: string): string {
+  let q = input.trim();
+  // Collapse multiple spaces
+  q = q.replace(/\s{2,}/g, " ");
+  // Fix comma glued to number: "rua 230,570" → "rua 230, 570"
+  q = q.replace(/,(\S)/g, ", $1");
+  return q;
+}
+
+/** Extract house number from input — flexible patterns */
 function extractNumberFromInput(input: string): string {
-  const match = input.match(/,\s*(\d+)/);
-  return match ? match[1] : "";
+  // Pattern 1: after comma (with or without space): "Rua X, 123" or "Rua X,123"
+  const commaMatch = input.match(/,\s*(\d+)/);
+  if (commaMatch) return commaMatch[1];
+
+  // Pattern 2: "nº 123" or "n 123" or "numero 123"
+  const nMatch = input.match(/n[ºo°]?\s*(\d+)/i);
+  if (nMatch) return nMatch[1];
+
+  // Pattern 3: last number in the string (but not if it's part of street name like "rua 230")
+  // Only use if there are at least 2 number groups (street number + house number)
+  const allNumbers = input.match(/\d+/g);
+  if (allNumbers && allNumbers.length >= 2) {
+    return allNumbers[allNumbers.length - 1];
+  }
+
+  return "";
+}
+
+/** Strip numbers that look like house numbers from query for fallback search */
+function stripHouseNumber(input: string): string {
+  // Remove ", 123" or ",123" patterns
+  let q = input.replace(/,\s*\d+/, "");
+  // Remove trailing standalone number
+  q = q.replace(/\s+\d+\s*$/, "");
+  return q.trim();
 }
 
 function getNeighborhood(r: NominatimResult): string {
@@ -54,6 +88,28 @@ function getNeighborhood(r: NominatimResult): string {
 
 function getCityFromResult(r: NominatimResult): string {
   return r.address?.city || r.address?.town || r.address?.village || r.address?.municipality || "";
+}
+
+async function fetchNominatim(
+  queryText: string,
+  cityName: string,
+  state: string
+): Promise<NominatimResult[]> {
+  const locationParts = [queryText];
+  if (cityName) locationParts.push(cityName);
+  locationParts.push(state, "Brazil");
+  const params = new URLSearchParams({
+    q: locationParts.join(", "),
+    format: "json",
+    addressdetails: "1",
+    limit: "6",
+    countrycodes: "br",
+  });
+  const res = await fetch(
+    `https://nominatim.openstreetmap.org/search?${params}`,
+    { headers: { "User-Agent": "FreteGarca/1.0" } }
+  );
+  return res.json();
 }
 
 export default function AddressAutocomplete({
@@ -92,7 +148,8 @@ export default function AddressAutocomplete({
   const search = useCallback(
     (q: string) => {
       if (timerRef.current) clearTimeout(timerRef.current);
-      if (q.length < 3 || !cityName) {
+      const normalized = normalizeQuery(q);
+      if (normalized.length < 3) {
         setResults([]);
         setIsOpen(false);
         return;
@@ -100,32 +157,37 @@ export default function AddressAutocomplete({
       timerRef.current = setTimeout(async () => {
         setLoading(true);
         try {
-          const locationParts = [q];
-          if (cityName) locationParts.push(cityName);
-          locationParts.push(state, "Brazil");
-          const params = new URLSearchParams({
-            q: locationParts.join(", "),
-            format: "json",
-            addressdetails: "1",
-            limit: "6",
-            countrycodes: "br",
-          });
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/search?${params}`,
-            { headers: { "User-Agent": "FreteGarca/1.0" } }
-          );
-          const data: NominatimResult[] = await res.json();
-          const filtered = cityName
-            ? data.filter((r) => r.display_name.toLowerCase().includes(cityName.toLowerCase()))
-            : data;
-          setResults(filtered);
-          setIsOpen(filtered.length > 0);
+          let data = await fetchNominatim(normalized, cityName, state);
+
+          // Filter by cityName only if provided
+          if (cityName) {
+            data = data.filter((r) =>
+              r.display_name.toLowerCase().includes(cityName.toLowerCase())
+            );
+          }
+
+          // Fallback: if no results, retry without house number part
+          if (data.length === 0) {
+            const stripped = stripHouseNumber(normalized);
+            if (stripped !== normalized && stripped.length >= 3) {
+              let fallback = await fetchNominatim(stripped, cityName, state);
+              if (cityName) {
+                fallback = fallback.filter((r) =>
+                  r.display_name.toLowerCase().includes(cityName.toLowerCase())
+                );
+              }
+              data = fallback;
+            }
+          }
+
+          setResults(data);
+          setIsOpen(data.length > 0);
         } catch {
           setResults([]);
         } finally {
           setLoading(false);
         }
-      }, 800);
+      }, 500);
     },
     [cityName, state]
   );
@@ -137,7 +199,6 @@ export default function AddressAutocomplete({
     setMissingNumber(false);
     setPendingResult(null);
 
-    // If we had a pending result waiting for number, check if user typed a number now
     if (pendingResult && requireNumber) {
       const num = extractNumberFromInput(v);
       if (num) {
@@ -164,7 +225,7 @@ export default function AddressAutocomplete({
     const street = r.address?.road || r.display_name.split(",")[0];
     const houseNumber = overrideNumber || r.address?.house_number || extractNumberFromInput(query);
     const neighborhood = getNeighborhood(r);
-    
+
     let displayText = street;
     if (houseNumber) displayText += `, ${houseNumber}`;
     if (neighborhood) displayText += ` - ${neighborhood}`;
@@ -190,7 +251,6 @@ export default function AddressAutocomplete({
     const houseNumber = r.address?.house_number || extractNumberFromInput(query);
 
     if (requireNumber && !houseNumber) {
-      // Set the street in query and ask for number
       const street = r.address?.road || r.display_name.split(",")[0];
       setQuery(`${street}, `);
       setIsOpen(false);
@@ -203,7 +263,6 @@ export default function AddressAutocomplete({
     completeSelection(r);
   };
 
-  // Watch for number being typed when pending
   useEffect(() => {
     if (!pendingResult || !missingNumber) return;
     const num = extractNumberFromInput(query);
