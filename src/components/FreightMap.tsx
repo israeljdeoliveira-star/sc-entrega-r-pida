@@ -3,7 +3,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
 interface FreightMapProps {
-  originCoords: [number, number] | null; // [lat, lng]
+  originCoords: [number, number] | null;
   destCoords: [number, number] | null;
   onRouteCalculated?: (distanceKm: number, durationMin: number, routeCoords: [number, number][]) => void;
 }
@@ -34,7 +34,6 @@ export default function FreightMap({ originCoords, destCoords, onRouteCalculated
   const routeLineRef = useRef<L.Polyline | null>(null);
   const [mapReady, setMapReady] = useState(false);
 
-  // Init map
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
     const map = L.map(mapContainerRef.current, {
@@ -42,7 +41,7 @@ export default function FreightMap({ originCoords, destCoords, onRouteCalculated
       attributionControl: false,
     }).setView([-27.1, -48.6], 10);
 
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
       maxZoom: 19,
       attribution: '',
     }).addTo(map);
@@ -57,12 +56,10 @@ export default function FreightMap({ originCoords, destCoords, onRouteCalculated
     };
   }, []);
 
-  // Update markers and route
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
     const map = mapRef.current;
 
-    // Clear previous
     if (originMarkerRef.current) { map.removeLayer(originMarkerRef.current); originMarkerRef.current = null; }
     if (destMarkerRef.current) { map.removeLayer(destMarkerRef.current); destMarkerRef.current = null; }
     if (routeLineRef.current) { map.removeLayer(routeLineRef.current); routeLineRef.current = null; }
@@ -75,11 +72,9 @@ export default function FreightMap({ originCoords, destCoords, onRouteCalculated
     }
 
     if (originCoords && destCoords) {
-      // Fit bounds
       const bounds = L.latLngBounds([originCoords, destCoords]);
-      map.fitBounds(bounds, { padding: [40, 40] });
+      map.fitBounds(bounds, { padding: [30, 30] });
 
-      // Fetch route from OSRM
       const url = `https://router.project-osrm.org/route/v1/driving/${originCoords[1]},${originCoords[0]};${destCoords[1]},${destCoords[0]}?overview=full&geometries=geojson`;
       fetch(url)
         .then((r) => r.json())
@@ -90,11 +85,11 @@ export default function FreightMap({ originCoords, destCoords, onRouteCalculated
               (c: [number, number]) => [c[1], c[0]] as [number, number]
             );
             routeLineRef.current = L.polyline(coords, {
-              color: "hsl(210, 80%, 70%)",
+              color: "hsl(45, 100%, 60%)",
               weight: 4,
-              opacity: 0.85,
+              opacity: 0.9,
             }).addTo(map);
-            map.fitBounds(routeLineRef.current.getBounds(), { padding: [40, 40] });
+            map.fitBounds(routeLineRef.current.getBounds(), { padding: [30, 30] });
 
             const distKm = route.distance / 1000;
             const durMin = route.duration / 60;
@@ -112,7 +107,7 @@ export default function FreightMap({ originCoords, destCoords, onRouteCalculated
   return (
     <div
       ref={mapContainerRef}
-      className="w-full h-[250px] rounded-xl overflow-hidden border"
+      className="w-full h-[300px] rounded-xl overflow-hidden border"
       style={{ zIndex: 0 }}
     />
   );

@@ -31,13 +31,13 @@ interface FreightResult {
 }
 
 const WEIGHT_OPTIONS = [
-  { value: "500g", label: "500g", example: "📦 Pacote de café (500g)" },
-  { value: "1kg", label: "1 kg", example: "📚 Livro grande" },
-  { value: "3kg", label: "3 kg", example: "🍍 Abacaxi médio (~3kg)" },
-  { value: "5kg", label: "5 kg", example: "🍉 Melancia pequena" },
-  { value: "10kg", label: "10 kg", example: "🧴 Galão de água" },
-  { value: "15kg", label: "15 kg", example: "🖥️ Monitor" },
-  { value: "20kg", label: "20 kg", example: "🧳 Mala grande" },
+  { value: "500g", label: "500g", example: "📦 Pacote de Café (~500g)" },
+  { value: "1kg", label: "1 kg", example: "📚 Livro Grande (~1kg)" },
+  { value: "3kg", label: "3 kg", example: "🍍 Abacaxi Médio (~3kg)" },
+  { value: "5kg", label: "5 kg", example: "🍉 Melancia Pequena (~5kg)" },
+  { value: "10kg", label: "10 kg", example: "🧴 Galão de Água (~10kg)" },
+  { value: "15kg", label: "15 kg", example: "🖥️ Monitor (~15kg)" },
+  { value: "20kg", label: "20 kg", example: "🧳 Mala Grande (~20kg)" },
 ];
 
 const CATEGORIES = [
@@ -52,6 +52,10 @@ const CATEGORIES = [
 const VOLUME_KEYWORDS = ["sofá", "sofa", "geladeira", "fogão", "fogao", "guarda-roupa", "guarda roupa", "armário", "armario", "cama", "mesa grande"];
 
 const WHATSAPP_FIXED = "5547988042341";
+
+function buildGoogleMapsLink(lat: number, lng: number): string {
+  return `https://www.google.com/maps?q=${lat},${lng}`;
+}
 
 export default function Index() {
   const simulatorRef = useRef<HTMLDivElement>(null);
@@ -77,16 +81,22 @@ export default function Index() {
   const [destCityId, setDestCityId] = useState("");
   const [originAddress, setOriginAddress] = useState<AddressSelection | null>(null);
   const [destAddress, setDestAddress] = useState<AddressSelection | null>(null);
+  const [originRef, setOriginRef] = useState("");
+  const [destRef, setDestRef] = useState("");
   const [weight, setWeight] = useState("");
   const [category, setCategory] = useState("");
   const [motoReturn, setMotoReturn] = useState(false);
   const [motoExtraStops, setMotoExtraStops] = useState(0);
+  const [extraStopAddresses, setExtraStopAddresses] = useState<(AddressSelection | null)[]>([]);
+  const [extraStopRefs, setExtraStopRefs] = useState<string[]>([]);
 
-  // Car state - uses same city dropdown
+  // Car state
   const [carOriginCityId, setCarOriginCityId] = useState("");
   const [carDestCityId, setCarDestCityId] = useState("");
   const [carOriginAddress, setCarOriginAddress] = useState<AddressSelection | null>(null);
   const [carDestAddress, setCarDestAddress] = useState<AddressSelection | null>(null);
+  const [carOriginRef, setCarOriginRef] = useState("");
+  const [carDestRef, setCarDestRef] = useState("");
 
   // Car-specific fields
   const [carItemDescription, setCarItemDescription] = useState("");
@@ -120,6 +130,20 @@ export default function Index() {
       .then(({ data }) => { if (data) setCities(data); });
   }, []);
 
+  // Sync extra stop arrays with count
+  useEffect(() => {
+    setExtraStopAddresses(prev => {
+      const arr = [...prev];
+      while (arr.length < motoExtraStops) arr.push(null);
+      return arr.slice(0, motoExtraStops);
+    });
+    setExtraStopRefs(prev => {
+      const arr = [...prev];
+      while (arr.length < motoExtraStops) arr.push("");
+      return arr.slice(0, motoExtraStops);
+    });
+  }, [motoExtraStops]);
+
   const getOriginCityName = () => {
     if (mode === "sc") return cities.find(c => c.id === originCityId)?.name || "";
     return cities.find(c => c.id === carOriginCityId)?.name || "";
@@ -134,6 +158,14 @@ export default function Index() {
   const handleCarOriginSelect = useCallback((sel: AddressSelection) => { setCarOriginAddress(sel); setOriginCoords([sel.lat, sel.lng]); }, []);
   const handleCarDestSelect = useCallback((sel: AddressSelection) => { setCarDestAddress(sel); setDestCoords([sel.lat, sel.lng]); }, []);
   const handleRouteCalculated = useCallback((distKm: number, durMin: number) => { setRouteDistance(distKm); setRouteDuration(durMin); }, []);
+
+  const handleExtraStopSelect = useCallback((index: number, sel: AddressSelection) => {
+    setExtraStopAddresses(prev => {
+      const arr = [...prev];
+      arr[index] = sel;
+      return arr;
+    });
+  }, []);
 
   // Reset on mode change
   useEffect(() => { setResult(null); setError(""); setOriginCoords(null); setDestCoords(null); setRouteDistance(null); setRouteDuration(null); }, [mode]);
@@ -220,9 +252,14 @@ export default function Index() {
     const dAddr = mode === "sc" ? destAddress : carDestAddress;
     const oCityName = getOriginCityName();
     const dCityName = getDestCityName();
+    const oRef = mode === "sc" ? originRef : carOriginRef;
+    const dRef = mode === "sc" ? destRef : carDestRef;
 
-    const originText = `${oAddr?.street || ""} - ${oAddr?.neighborhood || ""} - ${oCityName}`;
-    const destText = `${dAddr?.street || ""} - ${dAddr?.neighborhood || ""} - ${dCityName}`;
+    const originText = `${oAddr?.street || ""}${oAddr?.houseNumber ? `, ${oAddr.houseNumber}` : ""} - ${oAddr?.neighborhood || ""} - ${oCityName}`;
+    const destText = `${dAddr?.street || ""}${dAddr?.houseNumber ? `, ${dAddr.houseNumber}` : ""} - ${dAddr?.neighborhood || ""} - ${dCityName}`;
+
+    const originMapLink = oAddr ? buildGoogleMapsLink(oAddr.lat, oAddr.lng) : "";
+    const destMapLink = dAddr ? buildGoogleMapsLink(dAddr.lat, dAddr.lng) : "";
 
     let msg = `🚛 FRETE GARÇA — SIMULAÇÃO
 
@@ -230,8 +267,27 @@ Olá! 👋
 
 Segue a simulação do seu frete:
 
-📍 Coleta: ${originText}
-📍 Entrega: ${destText}
+📍 Coleta: ${originText}${oRef ? `\n📌 Ref: ${oRef}` : ""}${originMapLink ? `\n🗺️ Mapa: ${originMapLink}` : ""}
+
+📍 Entrega: ${destText}${dRef ? `\n📌 Ref: ${dRef}` : ""}${destMapLink ? `\n🗺️ Mapa: ${destMapLink}` : ""}`;
+
+    // Extra stops
+    if (mode === "sc" && motoExtraStops > 0) {
+      for (let i = 0; i < motoExtraStops; i++) {
+        const stopAddr = extraStopAddresses[i];
+        const stopRef = extraStopRefs[i] || "";
+        if (stopAddr) {
+          const stopText = `${stopAddr.street}${stopAddr.houseNumber ? `, ${stopAddr.houseNumber}` : ""} - ${stopAddr.neighborhood || ""} - ${oCityName}`;
+          const stopMapLink = buildGoogleMapsLink(stopAddr.lat, stopAddr.lng);
+          msg += `\n\n📍 Parada ${i + 1}: ${stopText}${stopRef ? `\n📌 Ref: ${stopRef}` : ""}\n🗺️ Mapa: ${stopMapLink}`;
+        } else {
+          msg += `\n\n📍 Parada ${i + 1}: (endereço não informado)`;
+        }
+      }
+    }
+
+    msg += `
+
 🚚 Tipo: ${tipo}
 📏 Distância: ${result.distance_km.toFixed(1)} km
 💰 Valor estimado: R$ ${result.final_value.toFixed(2)}
@@ -327,6 +383,10 @@ Realizamos apenas o transporte.`;
                       <Label className="text-sm">Rua + Número</Label>
                       <AddressAutocomplete cityName={cities.find(c => c.id === originCityId)?.name || ""} disabled={!originCityId} placeholder="Ex: Rua Brasil, 123" onSelect={handleOriginSelect} />
                     </div>
+                    <div className="space-y-1">
+                      <Label className="text-sm text-muted-foreground">Ponto de referência</Label>
+                      <Input value={originRef} onChange={e => setOriginRef(e.target.value)} placeholder="Ex: Próximo ao mercado, casa azul..." className="text-sm" />
+                    </div>
                   </div>
 
                   <div className="border-t border-border" />
@@ -344,6 +404,10 @@ Realizamos apenas o transporte.`;
                     <div className="space-y-1">
                       <Label className="text-sm">Rua + Número</Label>
                       <AddressAutocomplete cityName={cities.find(c => c.id === destCityId)?.name || ""} disabled={!destCityId} placeholder="Ex: Rua Brasil, 123" onSelect={handleDestSelect} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-sm text-muted-foreground">Ponto de referência</Label>
+                      <Input value={destRef} onChange={e => setDestRef(e.target.value)} placeholder="Ex: Em frente à padaria..." className="text-sm" />
                     </div>
                   </div>
 
@@ -365,11 +429,8 @@ Realizamos apenas o transporte.`;
                       <Label className="text-sm">Peso estimado</Label>
                       <Select value={weight} onValueChange={setWeight}>
                         <SelectTrigger><SelectValue placeholder="Selecione o peso" /></SelectTrigger>
-                        <SelectContent>{WEIGHT_OPTIONS.map(w => <SelectItem key={w.value} value={w.value}>{w.label}</SelectItem>)}</SelectContent>
+                        <SelectContent>{WEIGHT_OPTIONS.map(w => <SelectItem key={w.value} value={w.value}>{w.example}</SelectItem>)}</SelectContent>
                       </Select>
-                      {selectedWeight && (
-                        <p className="text-xs text-muted-foreground ml-1">{selectedWeight.example}</p>
-                      )}
                     </div>
                   </div>
 
@@ -392,8 +453,39 @@ Realizamos apenas o transporte.`;
                           </Button>
                         </div>
                       </div>
-                      {motoExtraStops > 0 && <p className="text-xs text-muted-foreground pl-4">✅ {motoExtraStops} parada(s) extra(s) adicionada(s) ao valor.</p>}
+                      {motoExtraStops > 0 && <p className="text-xs text-muted-foreground pl-4">✅ {motoExtraStops} parada(s) extra(s) — valor adicional por parada baseado no valor mínimo da cidade.</p>}
                     </div>
+
+                    {/* Extra stop address blocks */}
+                    {motoExtraStops > 0 && (
+                      <div className="space-y-4 pl-2 border-l-2 border-primary/30 ml-2">
+                        {Array.from({ length: motoExtraStops }).map((_, i) => (
+                          <div key={i} className="space-y-2">
+                            <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                              <MapPin className="h-3.5 w-3.5" /> Parada {i + 1}
+                            </div>
+                            <AddressAutocomplete
+                              cityName={cities.find(c => c.id === originCityId)?.name || ""}
+                              disabled={!originCityId}
+                              placeholder={`Endereço da parada ${i + 1}`}
+                              onSelect={(sel) => handleExtraStopSelect(i, sel)}
+                            />
+                            <Input
+                              value={extraStopRefs[i] || ""}
+                              onChange={e => {
+                                setExtraStopRefs(prev => {
+                                  const arr = [...prev];
+                                  arr[i] = e.target.value;
+                                  return arr;
+                                });
+                              }}
+                              placeholder="Referência da parada (opcional)"
+                              className="text-sm"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </TabsContent>
 
@@ -421,6 +513,10 @@ Realizamos apenas o transporte.`;
                       <Label className="text-sm">Rua + Número</Label>
                       <AddressAutocomplete cityName={cities.find(c => c.id === carOriginCityId)?.name || ""} disabled={!carOriginCityId} placeholder="Ex: Rua 230, 570" onSelect={handleCarOriginSelect} />
                     </div>
+                    <div className="space-y-1">
+                      <Label className="text-sm text-muted-foreground">Ponto de referência</Label>
+                      <Input value={carOriginRef} onChange={e => setCarOriginRef(e.target.value)} placeholder="Ex: Próximo ao mercado, casa azul..." className="text-sm" />
+                    </div>
                   </div>
 
                   <div className="border-t border-border" />
@@ -438,6 +534,10 @@ Realizamos apenas o transporte.`;
                     <div className="space-y-1">
                       <Label className="text-sm">Rua + Número</Label>
                       <AddressAutocomplete cityName={cities.find(c => c.id === carDestCityId)?.name || ""} disabled={!carDestCityId} placeholder="Ex: Rua 230, 570" onSelect={handleCarDestSelect} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-sm text-muted-foreground">Ponto de referência</Label>
+                      <Input value={carDestRef} onChange={e => setCarDestRef(e.target.value)} placeholder="Ex: Em frente à padaria..." className="text-sm" />
                     </div>
                   </div>
 
@@ -502,7 +602,7 @@ Realizamos apenas o transporte.`;
                 </div>
               )}
 
-              {/* Result - sticky on mobile */}
+              {/* Result */}
               {result && (
                 <div className="rounded-xl border-2 border-primary/20 bg-accent/50 p-4 sm:p-6 space-y-4">
                   <div>
