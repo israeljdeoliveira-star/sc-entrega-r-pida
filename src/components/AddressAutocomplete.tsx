@@ -30,6 +30,7 @@ interface AddressAutocompleteProps {
   placeholder?: string;
   disabled?: boolean;
   value?: string;
+  requireNumber?: boolean;
   onSelect: (selection: AddressSelection) => void;
 }
 
@@ -42,7 +43,6 @@ function getNeighborhood(r: NominatimResult): string {
   if (r.address?.suburb) return r.address.suburb;
   if (r.address?.neighbourhood) return r.address.neighbourhood;
   if (r.address?.city_district) return r.address.city_district;
-  // fallback: try 2nd segment of display_name
   const parts = r.display_name.split(",").map((s) => s.trim());
   return parts[1] || "";
 }
@@ -53,6 +53,7 @@ export default function AddressAutocomplete({
   placeholder = "Digite o nome da rua...",
   disabled = false,
   value,
+  requireNumber = true,
   onSelect,
 }: AddressAutocompleteProps) {
   const [query, setQuery] = useState(value || "");
@@ -60,6 +61,8 @@ export default function AddressAutocomplete({
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selectedNeighborhood, setSelectedNeighborhood] = useState("");
+  const [missingNumber, setMissingNumber] = useState(false);
+  const [pendingResult, setPendingResult] = useState<NominatimResult | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -120,6 +123,18 @@ export default function AddressAutocomplete({
     const v = e.target.value;
     setQuery(v);
     setSelectedNeighborhood("");
+    setMissingNumber(false);
+    setPendingResult(null);
+
+    // If we had a pending result waiting for number, check if user typed a number now
+    if (pendingResult && requireNumber) {
+      const num = extractNumberFromInput(v);
+      if (num) {
+        completeSelection(pendingResult, num);
+        return;
+      }
+    }
+
     search(v);
   };
 
@@ -134,15 +149,20 @@ export default function AddressAutocomplete({
     return text;
   };
 
-  const handleSelect = (r: NominatimResult) => {
+  const completeSelection = (r: NominatimResult, overrideNumber?: string) => {
     const street = r.address?.road || r.display_name.split(",")[0];
-    const houseNumber = r.address?.house_number || extractNumberFromInput(query);
+    const houseNumber = overrideNumber || r.address?.house_number || extractNumberFromInput(query);
     const neighborhood = getNeighborhood(r);
-    const displayText = formatResult(r);
+    
+    let displayText = street;
+    if (houseNumber) displayText += `, ${houseNumber}`;
+    if (neighborhood) displayText += ` - ${neighborhood}`;
 
     setQuery(displayText);
     setIsOpen(false);
     setSelectedNeighborhood(neighborhood);
+    setMissingNumber(false);
+    setPendingResult(null);
 
     onSelect({
       street,
@@ -154,6 +174,32 @@ export default function AddressAutocomplete({
     });
   };
 
+  const handleSelect = (r: NominatimResult) => {
+    const houseNumber = r.address?.house_number || extractNumberFromInput(query);
+
+    if (requireNumber && !houseNumber) {
+      // Set the street in query and ask for number
+      const street = r.address?.road || r.display_name.split(",")[0];
+      setQuery(`${street}, `);
+      setIsOpen(false);
+      setMissingNumber(true);
+      setPendingResult(r);
+      setSelectedNeighborhood(getNeighborhood(r));
+      return;
+    }
+
+    completeSelection(r);
+  };
+
+  // Watch for number being typed when pending
+  useEffect(() => {
+    if (!pendingResult || !missingNumber) return;
+    const num = extractNumberFromInput(query);
+    if (num) {
+      completeSelection(pendingResult, num);
+    }
+  }, [query, pendingResult, missingNumber]);
+
   return (
     <div ref={containerRef} className="relative">
       <Input
@@ -162,6 +208,7 @@ export default function AddressAutocomplete({
         placeholder={placeholder}
         disabled={disabled}
         autoComplete="off"
+        className={missingNumber ? "border-destructive ring-1 ring-destructive" : ""}
       />
       {loading && (
         <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -182,7 +229,12 @@ export default function AddressAutocomplete({
           ))}
         </div>
       )}
-      {selectedNeighborhood && (
+      {missingNumber && (
+        <p className="text-xs text-destructive mt-1 font-medium">
+          ⚠️ Informe o número do endereço (ex: Rua Brasil, 123)
+        </p>
+      )}
+      {selectedNeighborhood && !missingNumber && (
         <div className="mt-1.5">
           <Badge variant="secondary" className="text-xs font-normal">
             📍 Bairro: {selectedNeighborhood}

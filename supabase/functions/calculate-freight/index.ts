@@ -60,14 +60,6 @@ Deno.serve(async (req) => {
       if (carAdditionals.fragile) additionalsTotal += num(settings.car_fee_fragile);
     }
 
-    // --- Moto extras ---
-    let motoExtras = 0;
-    if (isMoto) {
-      if (body.moto_return) motoExtras += num(settings.moto_return_fee);
-      const extraStops = Math.max(0, Math.min(10, num(body.moto_extra_stops)));
-      if (extraStops > 0) motoExtras += extraStops * num(settings.moto_extra_stop_fee);
-    }
-
     // --- Multi-trip discount ---
     const multiTrip = !!body.multi_trip;
     const multiTripDiscountPct = multiTrip ? num(settings.multi_trip_discount_pct) : 0;
@@ -113,10 +105,22 @@ Deno.serve(async (req) => {
       if (conditions.risk_medium) combinedMult *= num(settings[`${prefix}risk_medium`], 1);
       if (conditions.risk_high) combinedMult *= num(settings[`${prefix}risk_high`], 1);
 
+      // Moto extras
+      let motoExtras = 0;
+      if (isMoto) {
+        if (body.moto_return) motoExtras += num(settings.moto_return_fee);
+        // Extra stops: use origin city min_value as fee per stop
+        const extraStops = Math.max(0, Math.min(10, num(body.moto_extra_stops)));
+        if (extraStops > 0) {
+          const stopFee = num(originCity.min_value);
+          motoExtras += extraStops * stopFee;
+        }
+      }
+
       // Base value: for car, enforce minimum
       const baseForCalc = !isMoto ? Math.max(cityBaseValue, carMinValue) : cityBaseValue;
 
-      // Operational value = base + (distance * pricePerKm) * multipliers + additionals + motoExtras
+      // Operational value
       const valorOperacional = baseForCalc + (distanceKm * pricePerKm) * combinedMult + additionalsTotal + motoExtras;
 
       // Smart margin
