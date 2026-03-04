@@ -5,6 +5,7 @@ import "leaflet/dist/leaflet.css";
 interface FreightMapProps {
   originCoords: [number, number] | null;
   destCoords: [number, number] | null;
+  extraStopCoords?: [number, number][];
   onRouteCalculated?: (distanceKm: number, durationMin: number, routeCoords: [number, number][]) => void;
 }
 
@@ -26,11 +27,19 @@ const RED_ICON = new L.Icon({
   shadowSize: [41, 41],
 });
 
-export default function FreightMap({ originCoords, destCoords, onRouteCalculated }: FreightMapProps) {
+const BLUE_ICON = new L.Icon({
+  iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png",
+  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+
+export default function FreightMap({ originCoords, destCoords, extraStopCoords = [], onRouteCalculated }: FreightMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
-  const originMarkerRef = useRef<L.Marker | null>(null);
-  const destMarkerRef = useRef<L.Marker | null>(null);
+  const markersRef = useRef<L.Marker[]>([]);
   const routeLineRef = useRef<L.Polyline | null>(null);
   const [mapReady, setMapReady] = useState(false);
 
@@ -39,9 +48,9 @@ export default function FreightMap({ originCoords, destCoords, onRouteCalculated
     const map = L.map(mapContainerRef.current, {
       zoomControl: false,
       attributionControl: false,
-    }).setView([-27.1, -48.6], 10);
+    }).setView([-27.09, -48.61], 13);
 
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
       maxZoom: 19,
       attribution: '',
     }).addTo(map);
@@ -60,22 +69,33 @@ export default function FreightMap({ originCoords, destCoords, onRouteCalculated
     if (!mapReady || !mapRef.current) return;
     const map = mapRef.current;
 
-    if (originMarkerRef.current) { map.removeLayer(originMarkerRef.current); originMarkerRef.current = null; }
-    if (destMarkerRef.current) { map.removeLayer(destMarkerRef.current); destMarkerRef.current = null; }
+    // Clear all markers
+    markersRef.current.forEach(m => map.removeLayer(m));
+    markersRef.current = [];
     if (routeLineRef.current) { map.removeLayer(routeLineRef.current); routeLineRef.current = null; }
 
     if (originCoords) {
-      originMarkerRef.current = L.marker(originCoords, { icon: GREEN_ICON }).addTo(map).bindPopup("Origem");
+      markersRef.current.push(L.marker(originCoords, { icon: GREEN_ICON }).addTo(map).bindPopup("Origem"));
     }
     if (destCoords) {
-      destMarkerRef.current = L.marker(destCoords, { icon: RED_ICON }).addTo(map).bindPopup("Destino");
+      markersRef.current.push(L.marker(destCoords, { icon: RED_ICON }).addTo(map).bindPopup("Destino"));
     }
+    // Extra stop markers
+    extraStopCoords.forEach((coords, i) => {
+      markersRef.current.push(L.marker(coords, { icon: BLUE_ICON }).addTo(map).bindPopup(`Parada ${i + 1}`));
+    });
+
+    const allPoints = [originCoords, ...extraStopCoords, destCoords].filter(Boolean) as [number, number][];
 
     if (originCoords && destCoords) {
-      const bounds = L.latLngBounds([originCoords, destCoords]);
+      const bounds = L.latLngBounds(allPoints);
       map.fitBounds(bounds, { padding: [30, 30] });
 
-      const url = `https://router.project-osrm.org/route/v1/driving/${originCoords[1]},${originCoords[0]};${destCoords[1]},${destCoords[0]}?overview=full&geometries=geojson`;
+      // Build OSRM waypoints: origin → stops → destination
+      const waypoints = [originCoords, ...extraStopCoords, destCoords];
+      const coordsStr = waypoints.map(c => `${c[1]},${c[0]}`).join(";");
+      const url = `https://router.project-osrm.org/route/v1/driving/${coordsStr}?overview=full&geometries=geojson`;
+
       fetch(url)
         .then((r) => r.json())
         .then((data) => {
@@ -85,7 +105,7 @@ export default function FreightMap({ originCoords, destCoords, onRouteCalculated
               (c: [number, number]) => [c[1], c[0]] as [number, number]
             );
             routeLineRef.current = L.polyline(coords, {
-              color: "hsl(45, 100%, 60%)",
+              color: "hsl(45, 100%, 55%)",
               weight: 4,
               opacity: 0.9,
             }).addTo(map);
@@ -102,7 +122,7 @@ export default function FreightMap({ originCoords, destCoords, onRouteCalculated
     } else if (destCoords) {
       map.setView(destCoords, 14);
     }
-  }, [originCoords, destCoords, mapReady]);
+  }, [originCoords, destCoords, extraStopCoords, mapReady]);
 
   return (
     <div
