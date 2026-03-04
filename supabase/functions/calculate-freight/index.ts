@@ -13,8 +13,6 @@ function jsonResponse(data: unknown, status = 200) {
   });
 }
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-function isValidUUID(v: unknown): v is string { return typeof v === "string" && UUID_RE.test(v); }
 function num(v: unknown, fallback = 0): number {
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
@@ -28,28 +26,20 @@ function haversine(lat1: number, lng1: number, lat2: number, lng2: number): numb
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-const DENSITY_MULT: Record<string, number> = { baixa: 0.9, media: 1.0, alta: 1.15 };
-
-function calcConditionMult(settings: Record<string, unknown>, prefix: string, conditions: Record<string, boolean>, densityMult: number) {
-  let combinedMult = densityMult;
-  if (conditions.peak) combinedMult *= num(settings[`${prefix}peak`], 1);
-  if (conditions.night) combinedMult *= num(settings[`${prefix}night`], 1);
-  if (conditions.rain) combinedMult *= num(settings[`${prefix}rain`], 1);
-  if (conditions.severe) combinedMult *= num(settings[`${prefix}severe`], 1);
-  if (conditions.risk_medium) combinedMult *= num(settings[`${prefix}risk_medium`], 1);
-  if (conditions.risk_high) combinedMult *= num(settings[`${prefix}risk_high`], 1);
-  return combinedMult;
+interface KmTier {
+  km_ate: number;
+  valor: number;
 }
 
-function calcMargin(settings: Record<string, unknown>, conditions: Record<string, boolean>, distanceKm: number) {
-  let margemTotal = num(settings.margin_base);
-  if (conditions.peak) margemTotal += num(settings.margin_peak);
-  if (conditions.rain) margemTotal += num(settings.margin_rain);
-  if (conditions.risk_high) margemTotal += num(settings.margin_risk_high);
-  if (distanceKm > num(settings.long_distance_km, 50)) {
-    margemTotal += num(settings.margin_long_distance);
+function buscarValorPorKm(distancia: number, tiers: KmTier[]): number {
+  if (tiers.length === 0) return 0;
+  // tiers should be sorted by km_ate ascending
+  const sorted = [...tiers].sort((a, b) => a.km_ate - b.km_ate);
+  for (const tier of sorted) {
+    if (distancia <= tier.km_ate) return tier.valor;
   }
-  return Math.max(margemTotal, 0);
+  // exceeded all tiers → use last
+  return sorted[sorted.length - 1].valor;
 }
 
 Deno.serve(async (req) => {
@@ -93,10 +83,131 @@ Deno.serve(async (req) => {
     const multiTrip = !!body.multi_trip;
     const multiTripDiscountPct = multiTrip ? num(settings.multi_trip_discount_pct) : 0;
 
-    // --- SC MODE ---
-    if (mode === "sc") {
-      const { origin_city_id, destination_city_id } = body;
+    // ===========================================
+    // MOTO MODE — new logic based on filial + km tiers
+    // ===========================================
+    if (isMoto && mode === "sc") {
+      if (!clientDistance || clientDistance <= 0) {
+        return jsonResponse({ error: "Distância não informada." }, 400);
+      }
 
+      // Load filial config
+      const { data: filial } = await supabase.from("filial_config").select("*").limit(1).single();
+      if (!filial) {
+        return jsonResponse({ error: "Filial não configurada. Configure a filial no painel administrativo." }, 400);
+      }
+
+      // Load KM tiers
+      const { data: tiersData } = await supabase.from("km_tiers").select("km_ate, valor").order("km_ate");
+      const tiers: KmTier[] = (tiersData || []) as unknown as KmTier[];
+      if (tiers.length === 0) {
+        return jsonResponse({ error: "Tabela de quilometragem não configurada." }, 400);
+      }
+
+      // Radius limit check
+      if (settings.enable_radius_limit && clientDistance > num(settings.max_radius_km)) {
+        return jsonResponse({ error: `Distância de ${clientDistance.toFixed(1)} km excede o raio máximo de ${settings.max_radius_km} km.` }, 400);
+      }
+
+      // Determine if pickup is in filial city
+      const cidadeColeta = body.origin_city_name || "";
+      const isColetaNaFilial = cidadeColeta.toLowerCase().trim() === (filial.cidade_filial as string).toLowerCase().trim();
+
+      // RULE 1: Calculate delivery value from KM tiers
+      const distanciaEntrega = clientDistance;
+      const valorEntrega = buscarValorPorKm(distanciaEntrega, tiers);
+
+      // RULE 2: Calculate displacement cost if pickup outside filial
+      let distanciaDeslocamento = 0;
+      let custoDeslocamento = 0;
+
+      if (!isColetaNaFilial && filial.cobrar_deslocamento_fora_filial) {
+        // Use origin coords and filial coords to compute displacement
+        const originLat = num(body.origin_lat);
+        const originLng = num(body.origin_lng);
+        const filialLat = num(filial.latitude_filial);
+        const filialLng = num(filial.longitude_filial);
+
+        if (originLat !== 0 && originLng !== 0 && filialLat !== 0 && filialLng !== 0) {
+          // Use OSRM for real route distance if possible, fallback to haversine * 1.3
+          try {
+            const coordsStr = `${filialLng},${filialLat};${originLng},${originLat}`;
+            const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coordsStr}?overview=false`;
+            const osrmRes = await fetch(osrmUrl);
+            const osrmData = await osrmRes.json();
+            if (osrmData.routes?.[0]) {
+              distanciaDeslocamento = osrmData.routes[0].distance / 1000;
+            } else {
+              distanciaDeslocamento = haversine(filialLat, filialLng, originLat, originLng) * 1.3;
+            }
+          } catch {
+            distanciaDeslocamento = haversine(num(filial.latitude_filial), num(filial.longitude_filial), originLat, originLng) * 1.3;
+          }
+          custoDeslocamento = distanciaDeslocamento * num(filial.valor_km_deslocamento);
+        }
+      }
+
+      // Total
+      let total = valorEntrega + custoDeslocamento;
+
+      // Apply minimum ONLY when pickup is in filial city
+      if (isColetaNaFilial) {
+        const minFilial = num(filial.valor_minimo_filial, 15);
+        if (total < minFilial) total = minFilial;
+      }
+
+      // Safety: never return zero
+      if (total <= 0) total = num(filial.valor_minimo_filial, 15);
+
+      const valorFinal = Math.ceil(total);
+
+      // Moto extras (return fee, extra stops)
+      let motoExtras = 0;
+      if (body.moto_return) motoExtras += num(settings.moto_return_fee);
+
+      // Extra stops — each adds minimum from filial
+      const extraStops = body.extra_stops || [];
+      if (Array.isArray(extraStops) && extraStops.length > 0) {
+        motoExtras += extraStops.length * num(filial.valor_minimo_filial, 15);
+      }
+
+      const totalFinal = Math.ceil(valorFinal + motoExtras);
+
+      const configSnapshot = {
+        mode: "sc", vehicle_type: "moto",
+        distanciaEntrega, valorEntrega,
+        distanciaDeslocamento: Math.round(distanciaDeslocamento * 10) / 10,
+        custoDeslocamento: Math.round(custoDeslocamento * 100) / 100,
+        isColetaNaFilial, motoExtras, totalFinal,
+        filialCidade: filial.cidade_filial,
+      };
+
+      await supabase.from("simulations_log").insert({
+        mode: "sc", vehicle_type: "moto",
+        origin_city: cidadeColeta || body.origin_city || null,
+        destination_city: body.destination_city_name || body.destination_city || null,
+        distance_km: distanciaEntrega,
+        distancia_deslocamento_km: distanciaDeslocamento > 0 ? Math.round(distanciaDeslocamento * 10) / 10 : null,
+        valor_entrega: valorEntrega,
+        valor_deslocamento: custoDeslocamento > 0 ? Math.round(custoDeslocamento * 100) / 100 : null,
+        final_value: totalFinal,
+        operational_value: valorEntrega + custoDeslocamento,
+        margin_applied: 0,
+        config_snapshot: configSnapshot,
+        ip_hash: body.ip_hash || null,
+      });
+
+      return jsonResponse({ final_value: totalFinal, distance_km: distanciaEntrega, estimated_time_min: null });
+    }
+
+    // ===========================================
+    // CAR MODE — existing logic (SC or national)
+    // ===========================================
+    if (mode === "sc" && !isMoto) {
+      const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const isValidUUID = (v: unknown): v is string => typeof v === "string" && UUID_RE.test(v);
+
+      const { origin_city_id, destination_city_id } = body;
       if (!isValidUUID(origin_city_id)) return jsonResponse({ error: "Selecione a cidade de origem." }, 400);
       if (!isValidUUID(destination_city_id)) return jsonResponse({ error: "Selecione a cidade de destino." }, 400);
 
@@ -105,83 +216,60 @@ Deno.serve(async (req) => {
         supabase.from("cities").select("*").eq("id", destination_city_id).single(),
       ]);
 
-      if (!originCity || !destCity) return jsonResponse({ error: "Cidade não encontrada ou não cadastrada." }, 404);
-      if (!originCity.is_active) return jsonResponse({ error: "No momento não atendemos essa cidade." }, 400);
-      if (!destCity.is_active) return jsonResponse({ error: "No momento não atendemos essa cidade." }, 400);
+      if (!originCity || !destCity) return jsonResponse({ error: "Cidade não encontrada." }, 404);
 
       const distanceKm = clientDistance || 50;
 
       if (settings.enable_radius_limit && distanceKm > num(settings.max_radius_km)) {
-        return jsonResponse({ error: `Distância de ${distanceKm.toFixed(1)} km excede o raio máximo de ${settings.max_radius_km} km.` }, 400);
+        return jsonResponse({ error: `Distância excede o raio máximo de ${settings.max_radius_km} km.` }, 400);
       }
 
-      const pricePerKm = isMoto ? num(settings.price_per_km_moto) : num(settings.price_per_km_car);
+      const pricePerKm = num(settings.price_per_km_car);
       const cityBaseValue = Math.max(num(originCity.base_value), num(destCity.base_value));
-      const carMinValue = !isMoto ? num(settings.car_min_value, 98) : 0;
+      const carMinValue = num(settings.car_min_value, 98);
+      const baseForCalc = Math.max(cityBaseValue, carMinValue);
 
-      // Density
+      const DENSITY_MULT: Record<string, number> = { baixa: 0.9, media: 1.0, alta: 1.15 };
       const densityOrder = ["baixa", "media", "alta"];
       const originDensityIdx = densityOrder.indexOf(originCity.density || "media");
       const destDensityIdx = densityOrder.indexOf(destCity.density || "media");
       const effectiveDensity = originDensityIdx >= destDensityIdx ? (originCity.density || "media") : (destCity.density || "media");
       const densityMult = DENSITY_MULT[effectiveDensity] || 1.0;
 
-      const prefix = isMoto ? "mult_moto_" : "mult_car_";
-      const combinedMult = calcConditionMult(settings as Record<string, unknown>, prefix, conditions, densityMult);
+      const calcConditionMult = (prefix: string) => {
+        let m = densityMult;
+        if (conditions.peak) m *= num(settings[`${prefix}peak`], 1);
+        if (conditions.night) m *= num(settings[`${prefix}night`], 1);
+        if (conditions.rain) m *= num(settings[`${prefix}rain`], 1);
+        if (conditions.severe) m *= num(settings[`${prefix}severe`], 1);
+        if (conditions.risk_medium) m *= num(settings[`${prefix}risk_medium`], 1);
+        if (conditions.risk_high) m *= num(settings[`${prefix}risk_high`], 1);
+        return m;
+      };
 
-      // Moto extras
-      let motoExtras = 0;
-      if (isMoto) {
-        if (body.moto_return) motoExtras += num(settings.moto_return_fee);
-
-        // Extra stops: charge base_value of nearest city
-        const extraStops: { city_id?: string; lat?: number; lng?: number }[] = body.extra_stops || [];
-        if (extraStops.length > 0) {
-          for (const stop of extraStops) {
-            if (stop.city_id && isValidUUID(stop.city_id)) {
-              // Lookup city
-              const { data: stopCity } = await supabase.from("cities").select("min_value").eq("id", stop.city_id).single();
-              motoExtras += num(stopCity?.min_value, num(originCity.min_value));
-            } else if (stop.lat != null && stop.lng != null) {
-              // Determine nearest city via haversine (simplified: origin vs dest)
-              // We don't have city coords, so use the city_id that frontend determined
-              motoExtras += num(originCity.min_value);
-            } else {
-              motoExtras += num(originCity.min_value);
-            }
-          }
-        } else {
-          // Legacy: flat count
-          const extraStopCount = Math.max(0, Math.min(10, num(body.moto_extra_stops)));
-          if (extraStopCount > 0) {
-            motoExtras += extraStopCount * num(originCity.min_value);
-          }
-        }
-      }
-
-      const baseForCalc = isMoto ? num(destCity.base_value) : Math.max(cityBaseValue, carMinValue);
-
-      // Same city = only base value (no KM charge). Inter-city = base + KM displacement.
+      const combinedMult = calcConditionMult("mult_car_");
       const isSameCity = origin_city_id === destination_city_id;
       const valorOperacional = isSameCity
-        ? baseForCalc + additionalsTotal + motoExtras
-        : baseForCalc + (distanceKm * pricePerKm) * combinedMult + additionalsTotal + motoExtras;
-      // Moto: nunca aplica margem. Carro mesma cidade: sem margem. Carro inter: com margem.
-      const margemTotal = isMoto ? 0 : (isSameCity ? 0 : calcMargin(settings as Record<string, unknown>, conditions, distanceKm));
+        ? baseForCalc + additionalsTotal
+        : baseForCalc + (distanceKm * pricePerKm) * combinedMult + additionalsTotal;
 
+      const calcMargin = () => {
+        let m = num(settings.margin_base);
+        if (conditions.peak) m += num(settings.margin_peak);
+        if (conditions.rain) m += num(settings.margin_rain);
+        if (conditions.risk_high) m += num(settings.margin_risk_high);
+        if (distanceKm > num(settings.long_distance_km, 50)) m += num(settings.margin_long_distance);
+        return Math.max(m, 0);
+      };
+
+      const margemTotal = isSameCity ? 0 : calcMargin();
       let valorFinal = Math.ceil(valorOperacional * (1 + margemTotal / 100));
       const cityMinValue = Math.max(num(originCity.min_value), num(destCity.min_value));
-      const effectiveMin = !isMoto ? Math.max(cityMinValue, carMinValue) : cityMinValue;
-      valorFinal = Math.max(valorFinal, effectiveMin);
+      valorFinal = Math.max(valorFinal, Math.max(cityMinValue, carMinValue));
 
       if (multiTripDiscountPct > 0) {
         valorFinal = Math.ceil(valorFinal * (1 - multiTripDiscountPct / 100));
       }
-
-      const configSnapshot = {
-        mode, vehicle_type, pricePerKm, cityBaseValue: baseForCalc, densityMult, combinedMult,
-        margemTotal, additionalsTotal, motoExtras, multiTripDiscountPct, valorFinal,
-      };
 
       await supabase.from("simulations_log").insert({
         mode, vehicle_type,
@@ -191,7 +279,7 @@ Deno.serve(async (req) => {
         final_value: valorFinal,
         operational_value: valorOperacional,
         margin_applied: margemTotal,
-        config_snapshot: configSnapshot,
+        config_snapshot: { mode, vehicle_type, baseForCalc, margemTotal, additionalsTotal, valorFinal },
         ip_hash: body.ip_hash || null,
       });
 
@@ -206,7 +294,6 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: `Distância excede o raio máximo de ${settings.max_radius_km} km.` }, 400);
       }
 
-      // Try to find served_state for better pricing
       const originState = body.origin_state || null;
       let stateBaseValue = num(settings.valor_base_nacional);
       let stateMinValue = num(settings.national_min_value);
@@ -218,7 +305,6 @@ Deno.serve(async (req) => {
           .eq("state_code", originState)
           .eq("is_active", true)
           .single();
-
         if (servedState) {
           stateBaseValue = Math.max(num(servedState.base_value), stateBaseValue);
           stateMinValue = Math.max(num(servedState.min_value), stateMinValue);
@@ -227,25 +313,38 @@ Deno.serve(async (req) => {
 
       const pricePerKm = num(settings.national_price_per_km);
       const carMinValue = num(settings.car_min_value, 98);
-
-      const combinedMult = calcConditionMult(settings as Record<string, unknown>, "mult_car_", conditions, 1.0);
-
       const baseValue = Math.max(stateBaseValue, carMinValue);
-      const valorOperacional = baseValue + (clientDistance * pricePerKm) * combinedMult + additionalsTotal;
-      const margemTotal = calcMargin(settings as Record<string, unknown>, conditions, clientDistance);
 
+      const calcConditionMult2 = () => {
+        let m = 1.0;
+        if (conditions.peak) m *= num(settings.mult_car_peak, 1);
+        if (conditions.night) m *= num(settings.mult_car_night, 1);
+        if (conditions.rain) m *= num(settings.mult_car_rain, 1);
+        if (conditions.severe) m *= num(settings.mult_car_severe, 1);
+        if (conditions.risk_medium) m *= num(settings.mult_car_risk_medium, 1);
+        if (conditions.risk_high) m *= num(settings.mult_car_risk_high, 1);
+        return m;
+      };
+
+      const combinedMult = calcConditionMult2();
+      const valorOperacional = baseValue + (clientDistance * pricePerKm) * combinedMult + additionalsTotal;
+
+      const calcMarginNational = () => {
+        let m = num(settings.margin_base);
+        if (conditions.peak) m += num(settings.margin_peak);
+        if (conditions.rain) m += num(settings.margin_rain);
+        if (conditions.risk_high) m += num(settings.margin_risk_high);
+        if (clientDistance > num(settings.long_distance_km, 50)) m += num(settings.margin_long_distance);
+        return Math.max(m, 0);
+      };
+
+      const margemTotal = calcMarginNational();
       let valorFinal = Math.ceil(valorOperacional * (1 + margemTotal / 100));
-      const minValue = Math.max(stateMinValue, carMinValue);
-      valorFinal = Math.max(valorFinal, minValue);
+      valorFinal = Math.max(valorFinal, Math.max(stateMinValue, carMinValue));
 
       if (multiTripDiscountPct > 0) {
         valorFinal = Math.ceil(valorFinal * (1 - multiTripDiscountPct / 100));
       }
-
-      const configSnapshot = {
-        mode, vehicle_type, pricePerKm, baseValue, combinedMult, margemTotal,
-        additionalsTotal, multiTripDiscountPct, valorFinal, originState,
-      };
 
       await supabase.from("simulations_log").insert({
         mode, vehicle_type,
@@ -255,7 +354,7 @@ Deno.serve(async (req) => {
         final_value: valorFinal,
         operational_value: valorOperacional,
         margin_applied: margemTotal,
-        config_snapshot: configSnapshot,
+        config_snapshot: { mode, vehicle_type, baseValue, combinedMult, margemTotal, additionalsTotal, valorFinal },
         ip_hash: body.ip_hash || null,
       });
 
