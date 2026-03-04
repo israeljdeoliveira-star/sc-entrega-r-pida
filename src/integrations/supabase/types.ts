@@ -156,6 +156,8 @@ export type Database = {
           margin_rain: number
           margin_risk_high: number
           max_radius_km: number
+          moto_extra_stop_fee: number
+          moto_return_fee: number
           mult_car_night: number
           mult_car_peak: number
           mult_car_rain: number
@@ -201,6 +203,8 @@ export type Database = {
           margin_rain?: number
           margin_risk_high?: number
           max_radius_km?: number
+          moto_extra_stop_fee?: number
+          moto_return_fee?: number
           mult_car_night?: number
           mult_car_peak?: number
           mult_car_rain?: number
@@ -246,6 +250,8 @@ export type Database = {
           margin_rain?: number
           margin_risk_high?: number
           max_radius_km?: number
+          moto_extra_stop_fee?: number
+          moto_return_fee?: number
           mult_car_night?: number
           mult_car_peak?: number
           mult_car_rain?: number
