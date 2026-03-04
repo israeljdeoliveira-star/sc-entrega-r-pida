@@ -23,9 +23,12 @@ export default function SimulationsLogPage() {
   const [logs, setLogs] = useState<SimLog[]>([]);
 
   useEffect(() => {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     supabase
       .from("simulations_log")
       .select("id, created_at, origin_city, destination_city, vehicle_type, mode, distance_km, final_value, operational_value, margin_applied, config_snapshot")
+      .gte("created_at", thirtyDaysAgo.toISOString())
       .order("created_at", { ascending: false })
       .limit(200)
       .then(({ data }) => {
@@ -37,7 +40,7 @@ export default function SimulationsLogPage() {
     <Card>
       <CardHeader>
         <CardTitle>Log de Simulações</CardTitle>
-        <p className="text-sm text-muted-foreground">Últimas 200 simulações realizadas no sistema. Somente visualização.</p>
+        <p className="text-sm text-muted-foreground">Simulações dos últimos 30 dias. Registros mais antigos são removidos automaticamente.</p>
       </CardHeader>
       <CardContent>
         {logs.length === 0 ? (
