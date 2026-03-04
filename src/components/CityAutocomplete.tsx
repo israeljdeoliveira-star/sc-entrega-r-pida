@@ -10,6 +10,7 @@ interface NominatimCity {
     city?: string;
     town?: string;
     village?: string;
+    municipality?: string;
     state?: string;
   };
 }
@@ -35,6 +36,14 @@ interface ServedState {
   state_code: string;
   state_name: string;
   is_active: boolean;
+}
+
+/** Normalize: trim, collapse spaces, fix glued commas */
+function normalizeQuery(input: string): string {
+  let q = input.trim();
+  q = q.replace(/\s{2,}/g, " ");
+  q = q.replace(/,(\S)/g, ", $1");
+  return q;
 }
 
 export default function CityAutocomplete({
@@ -63,7 +72,6 @@ export default function CityAutocomplete({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Preload served states
   useEffect(() => {
     supabase.from("served_states").select("id, state_code, state_name, is_active").eq("is_active", true)
       .then(({ data }) => { if (data) servedStatesRef.current = data as ServedState[]; });
@@ -71,39 +79,62 @@ export default function CityAutocomplete({
 
   const search = useCallback((q: string) => {
     if (timerRef.current) clearTimeout(timerRef.current);
-    if (q.length < 3) { setResults([]); setIsOpen(false); return; }
+    const normalized = normalizeQuery(q);
+    if (normalized.length < 2) { setResults([]); setIsOpen(false); return; }
 
     timerRef.current = setTimeout(async () => {
       setLoading(true);
       try {
+        // Search without restrictive viewbox — all of Brazil
         const params = new URLSearchParams({
-          q: `${q}, Brazil`,
+          q: `${normalized}, Brazil`,
           format: "json",
           addressdetails: "1",
-          limit: "8",
+          limit: "10",
           countrycodes: "br",
-          viewbox: "-49.5,-27.8,-48.0,-26.5",
-          bounded: "0",
+          featuretype: "city",
         });
         const res = await fetch(
           `https://nominatim.openstreetmap.org/search?${params}`,
           { headers: { "User-Agent": "FreteGarca/1.0" } }
         );
-        const data: NominatimCity[] = await res.json();
-        const filtered = data.filter((r) => r.address?.city || r.address?.town || r.address?.village);
+        let data: NominatimCity[] = await res.json();
 
+        // If featuretype=city returned nothing, retry without it
+        if (data.length === 0) {
+          const fallbackParams = new URLSearchParams({
+            q: `${normalized}, Brazil`,
+            format: "json",
+            addressdetails: "1",
+            limit: "10",
+            countrycodes: "br",
+          });
+          const fallbackRes = await fetch(
+            `https://nominatim.openstreetmap.org/search?${fallbackParams}`,
+            { headers: { "User-Agent": "FreteGarca/1.0" } }
+          );
+          data = await fallbackRes.json();
+        }
+
+        const filtered = data.filter(
+          (r) => r.address?.city || r.address?.town || r.address?.village || r.address?.municipality
+        );
+
+        // Deduplicate by city name
         const seen = new Set<string>();
         const merged: NominatimCity[] = [];
         for (const r of filtered) {
-          const name = (r.address?.city || r.address?.town || r.address?.village || "").toLowerCase();
-          if (!seen.has(name)) { seen.add(name); merged.push(r); }
+          const name = getCityName(r).toLowerCase();
+          const state = getStateName(r).toLowerCase();
+          const key = `${name}-${state}`;
+          if (!seen.has(key)) { seen.add(key); merged.push(r); }
         }
 
         setResults(merged);
         setIsOpen(merged.length > 0);
       } catch { setResults([]); }
       finally { setLoading(false); }
-    }, 350);
+    }, 400);
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -112,7 +143,9 @@ export default function CityAutocomplete({
     search(v);
   };
 
-  const getCityName = (r: NominatimCity): string => r.address?.city || r.address?.town || r.address?.village || r.display_name.split(",")[0];
+  const getCityName = (r: NominatimCity): string =>
+    r.address?.city || r.address?.town || r.address?.village || r.address?.municipality || r.display_name.split(",")[0];
+  
   const getStateName = (r: NominatimCity): string => r.address?.state || "";
 
   const getStateCode = (stateName: string): string => {
