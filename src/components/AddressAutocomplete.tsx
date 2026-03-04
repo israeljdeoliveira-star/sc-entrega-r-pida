@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 
 interface NominatimResult {
   display_name: string;
@@ -7,6 +8,7 @@ interface NominatimResult {
   lon: string;
   address?: {
     road?: string;
+    house_number?: string;
     suburb?: string;
     neighbourhood?: string;
     city_district?: string;
@@ -15,6 +17,7 @@ interface NominatimResult {
 
 export interface AddressSelection {
   street: string;
+  houseNumber: string;
   neighborhood: string;
   lat: number;
   lng: number;
@@ -30,6 +33,20 @@ interface AddressAutocompleteProps {
   onSelect: (selection: AddressSelection) => void;
 }
 
+function extractNumberFromInput(input: string): string {
+  const match = input.match(/,\s*(\d+)/);
+  return match ? match[1] : "";
+}
+
+function getNeighborhood(r: NominatimResult): string {
+  if (r.address?.suburb) return r.address.suburb;
+  if (r.address?.neighbourhood) return r.address.neighbourhood;
+  if (r.address?.city_district) return r.address.city_district;
+  // fallback: try 2nd segment of display_name
+  const parts = r.display_name.split(",").map((s) => s.trim());
+  return parts[1] || "";
+}
+
 export default function AddressAutocomplete({
   cityName,
   state = "SC",
@@ -42,6 +59,7 @@ export default function AddressAutocomplete({
   const [results, setResults] = useState<NominatimResult[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [selectedNeighborhood, setSelectedNeighborhood] = useState("");
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -82,7 +100,6 @@ export default function AddressAutocomplete({
             { headers: { "User-Agent": "FreteGarca/1.0" } }
           );
           const data: NominatimResult[] = await res.json();
-          // Filter results that belong to the selected city
           const filtered = data.filter((r) => {
             const dn = r.display_name.toLowerCase();
             return dn.includes(cityName.toLowerCase());
@@ -94,7 +111,7 @@ export default function AddressAutocomplete({
         } finally {
           setLoading(false);
         }
-      }, 800); // Nominatim 1req/sec policy
+      }, 800);
     },
     [cityName, state]
   );
@@ -102,27 +119,34 @@ export default function AddressAutocomplete({
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const v = e.target.value;
     setQuery(v);
+    setSelectedNeighborhood("");
     search(v);
   };
 
   const formatResult = (r: NominatimResult) => {
     const road = r.address?.road || "";
-    const neighborhood =
-      r.address?.suburb || r.address?.neighbourhood || r.address?.city_district || "";
-    if (road && neighborhood) return `${road} - ${neighborhood}`;
-    if (road) return road;
-    return r.display_name.split(",").slice(0, 2).join(" - ");
+    const number = r.address?.house_number || extractNumberFromInput(query);
+    const neighborhood = getNeighborhood(r);
+
+    let text = road || r.display_name.split(",")[0];
+    if (number) text += `, ${number}`;
+    if (neighborhood) text += ` - ${neighborhood}`;
+    return text;
   };
 
   const handleSelect = (r: NominatimResult) => {
     const street = r.address?.road || r.display_name.split(",")[0];
-    const neighborhood =
-      r.address?.suburb || r.address?.neighbourhood || r.address?.city_district || "";
+    const houseNumber = r.address?.house_number || extractNumberFromInput(query);
+    const neighborhood = getNeighborhood(r);
     const displayText = formatResult(r);
+
     setQuery(displayText);
     setIsOpen(false);
+    setSelectedNeighborhood(neighborhood);
+
     onSelect({
       street,
+      houseNumber,
       neighborhood,
       lat: parseFloat(r.lat),
       lng: parseFloat(r.lon),
@@ -156,6 +180,13 @@ export default function AddressAutocomplete({
               {formatResult(r)}
             </button>
           ))}
+        </div>
+      )}
+      {selectedNeighborhood && (
+        <div className="mt-1.5">
+          <Badge variant="secondary" className="text-xs font-normal">
+            📍 Bairro: {selectedNeighborhood}
+          </Badge>
         </div>
       )}
     </div>
