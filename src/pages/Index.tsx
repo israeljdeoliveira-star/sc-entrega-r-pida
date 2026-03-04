@@ -121,8 +121,8 @@ export default function Index() {
   }, []);
 
   // SC Moto state
-  const [originCityId, setOriginCityId] = useState("");
-  const [destCityId, setDestCityId] = useState("");
+  const [originCityName, setOriginCityName] = useState("");
+  const [destCityName, setDestCityName] = useState("");
   const [originAddress, setOriginAddress] = useState<AddressSelection | null>(null);
   const [destAddress, setDestAddress] = useState<AddressSelection | null>(null);
   const [originRef, setOriginRef] = useState("");
@@ -202,16 +202,16 @@ export default function Index() {
   }, [motoExtraStops]);
 
   const getOriginCityName = () => {
-    if (mode === "sc") return cities.find(c => c.id === originCityId)?.name || "";
+    if (mode === "sc") return originCityName;
     return carOriginCityName;
   };
   const getDestCityName = () => {
-    if (mode === "sc") return cities.find(c => c.id === destCityId)?.name || "";
+    if (mode === "sc") return destCityName;
     return carDestCityName;
   };
 
-  const handleOriginSelect = useCallback((sel: AddressSelection) => { setOriginAddress(sel); setOriginCoords([sel.lat, sel.lng]); }, []);
-  const handleDestSelect = useCallback((sel: AddressSelection) => { setDestAddress(sel); setDestCoords([sel.lat, sel.lng]); }, []);
+  const handleOriginSelect = useCallback((sel: AddressSelection) => { setOriginAddress(sel); setOriginCoords([sel.lat, sel.lng]); setOriginCityName(sel.cityName || ""); }, []);
+  const handleDestSelect = useCallback((sel: AddressSelection) => { setDestAddress(sel); setDestCoords([sel.lat, sel.lng]); setDestCityName(sel.cityName || ""); }, []);
   const handleCarOriginSelect = useCallback((sel: AddressSelection) => {
     setCarOriginAddress(sel);
     setOriginCoords([sel.lat, sel.lng]);
@@ -247,8 +247,6 @@ export default function Index() {
 
   // Reset on mode change
   useEffect(() => { setResult(null); setError(""); setOriginCoords(null); setDestCoords(null); setRouteDistance(null); setRouteDuration(null); }, [mode]);
-  useEffect(() => { setOriginAddress(null); setOriginCoords(null); }, [originCityId]);
-  useEffect(() => { setDestAddress(null); setDestCoords(null); }, [destCityId]);
 
   // Compute extra stop coords for map (with optional optimization)
   const extraStopCoords = useMemo((): [number, number][] => {
@@ -267,24 +265,11 @@ export default function Index() {
   }, [extraStopAddresses, optimizeRoute, originCoords, destCoords]);
 
   // Determine which city each stop belongs to (for pricing)
-  const getStopCityIds = useCallback((): { city_id?: string; lat: number; lng: number }[] => {
+  const getStopCityIds = useCallback((): { lat: number; lng: number }[] => {
     const validStops = extraStopAddresses.filter(Boolean) as AddressSelection[];
     if (validStops.length === 0) return [];
-
-    const originCity = cities.find(c => c.id === originCityId);
-    const destCity = cities.find(c => c.id === destCityId);
-
-    return validStops.map(stop => {
-      // Use haversine to determine if stop is closer to origin or dest address
-      let closerCityId = originCityId;
-      if (originCoords && destCoords) {
-        const distToOrigin = haversineDistance(stop.lat, stop.lng, originCoords[0], originCoords[1]);
-        const distToDest = haversineDistance(stop.lat, stop.lng, destCoords[0], destCoords[1]);
-        closerCityId = distToDest < distToOrigin ? destCityId : originCityId;
-      }
-      return { city_id: closerCityId || undefined, lat: stop.lat, lng: stop.lng };
-    });
-  }, [extraStopAddresses, originCityId, destCityId, originCoords, destCoords, cities]);
+    return validStops.map(stop => ({ lat: stop.lat, lng: stop.lng }));
+  }, [extraStopAddresses]);
 
   // Stable ref for handleSimulate to avoid loop
   const handleSimulateRef = useRef<(distance: number) => Promise<void>>();
@@ -325,10 +310,8 @@ export default function Index() {
           }
         : {
             mode: "sc",
-            origin_city_id: originCityId,
-            destination_city_id: destCityId,
-            origin_city_name: cities.find(c => c.id === originCityId)?.name || "",
-            destination_city_name: cities.find(c => c.id === destCityId)?.name || "",
+            origin_city_name: originCityName,
+            destination_city_name: destCityName,
             origin_lat: originAddress?.lat,
             origin_lng: originAddress?.lng,
             vehicle_type: "moto",
@@ -359,7 +342,7 @@ export default function Index() {
       setLoading(false);
       isCalculatingRef.current = false;
     }
-  }, [mode, carItemDescription, carItemDetails, carNeedHelper, carNeedStairs, carIsApartment, carHasElevator, carNeedBubbleWrap, carHasFragile, carMultiTrip, carOriginCityId, carDestCityId, originCityId, destCityId, motoReturn, routeDuration, toast, getStopCityIds]);
+  }, [mode, carItemDescription, carItemDetails, carNeedHelper, carNeedStairs, carIsApartment, carHasElevator, carNeedBubbleWrap, carHasFragile, carMultiTrip, carOriginCityId, carDestCityId, originCityName, destCityName, motoReturn, routeDuration, toast, getStopCityIds]);
 
   // Keep ref always pointing to latest handleSimulate
   useEffect(() => {
@@ -511,16 +494,9 @@ Realizamos apenas o transporte.`;
                   {/* Coleta */}
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-4 w-4 text-primary" /> 📍 Local de Coleta</div>
-                    <div className="space-y-2">
-                      <Label className="text-sm">Cidade</Label>
-                      <Select value={originCityId} onValueChange={setOriginCityId}>
-                        <SelectTrigger><SelectValue placeholder="Selecione a cidade" /></SelectTrigger>
-                        <SelectContent>{cities.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
                     <div className="space-y-1">
                       <Label className="text-sm">Rua + Número</Label>
-                      <AddressAutocomplete cityName={cities.find(c => c.id === originCityId)?.name || ""} disabled={!originCityId} placeholder="Ex: Rua Brasil, 123" onSelect={handleOriginSelect} />
+                      <AddressAutocomplete placeholder="Ex: Rua Brasil, 123 - Itapema" onSelect={handleOriginSelect} />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-sm text-muted-foreground">Ponto de referência</Label>
@@ -533,16 +509,9 @@ Realizamos apenas o transporte.`;
                   {/* Destino */}
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-4 w-4 text-destructive" /> 📍 Destino</div>
-                    <div className="space-y-2">
-                      <Label className="text-sm">Cidade</Label>
-                      <Select value={destCityId} onValueChange={setDestCityId}>
-                        <SelectTrigger><SelectValue placeholder="Selecione a cidade" /></SelectTrigger>
-                        <SelectContent>{cities.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
                     <div className="space-y-1">
                       <Label className="text-sm">Rua + Número</Label>
-                      <AddressAutocomplete cityName={cities.find(c => c.id === destCityId)?.name || ""} disabled={!destCityId} placeholder="Ex: Rua Brasil, 123" onSelect={handleDestSelect} />
+                      <AddressAutocomplete placeholder="Ex: Rua Brasil, 123 - Porto Belo" onSelect={handleDestSelect} />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-sm">Nome do destinatário</Label>
@@ -621,8 +590,6 @@ Realizamos apenas o transporte.`;
                               <MapPin className="h-3.5 w-3.5" /> Parada {i + 1}
                             </div>
                             <AddressAutocomplete
-                              cityName={cities.find(c => c.id === originCityId)?.name || cities.find(c => c.id === destCityId)?.name || ""}
-                              disabled={!originCityId && !destCityId}
                               placeholder={`Endereço da parada ${i + 1}`}
                               onSelect={(sel) => handleExtraStopSelect(i, sel)}
                             />

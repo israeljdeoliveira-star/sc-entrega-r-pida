@@ -12,6 +12,10 @@ interface NominatimResult {
     suburb?: string;
     neighbourhood?: string;
     city_district?: string;
+    city?: string;
+    town?: string;
+    village?: string;
+    municipality?: string;
   };
 }
 
@@ -22,10 +26,11 @@ export interface AddressSelection {
   lat: number;
   lng: number;
   displayText: string;
+  cityName?: string;
 }
 
 interface AddressAutocompleteProps {
-  cityName: string;
+  cityName?: string;
   state?: string;
   placeholder?: string;
   disabled?: boolean;
@@ -47,8 +52,12 @@ function getNeighborhood(r: NominatimResult): string {
   return parts[1] || "";
 }
 
+function getCityFromResult(r: NominatimResult): string {
+  return r.address?.city || r.address?.town || r.address?.village || r.address?.municipality || "";
+}
+
 export default function AddressAutocomplete({
-  cityName,
+  cityName = "",
   state = "SC",
   placeholder = "Digite o nome da rua...",
   disabled = false,
@@ -91,8 +100,11 @@ export default function AddressAutocomplete({
       timerRef.current = setTimeout(async () => {
         setLoading(true);
         try {
+          const locationParts = [q];
+          if (cityName) locationParts.push(cityName);
+          locationParts.push(state, "Brazil");
           const params = new URLSearchParams({
-            q: `${q}, ${cityName}, ${state}, Brazil`,
+            q: locationParts.join(", "),
             format: "json",
             addressdetails: "1",
             limit: "6",
@@ -103,10 +115,9 @@ export default function AddressAutocomplete({
             { headers: { "User-Agent": "FreteGarca/1.0" } }
           );
           const data: NominatimResult[] = await res.json();
-          const filtered = data.filter((r) => {
-            const dn = r.display_name.toLowerCase();
-            return dn.includes(cityName.toLowerCase());
-          });
+          const filtered = cityName
+            ? data.filter((r) => r.display_name.toLowerCase().includes(cityName.toLowerCase()))
+            : data;
           setResults(filtered);
           setIsOpen(filtered.length > 0);
         } catch {
@@ -171,6 +182,7 @@ export default function AddressAutocomplete({
       lat: parseFloat(r.lat),
       lng: parseFloat(r.lon),
       displayText,
+      cityName: getCityFromResult(r),
     });
   };
 
