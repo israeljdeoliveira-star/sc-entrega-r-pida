@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import {
   Building2, MapPin, LogOut, Truck, LayoutDashboard, Users, CarFront, Package, Zap, FileText, Code, ImageIcon, UsersRound,
-  Ruler, TrendingUp, Percent, Activity
+  Ruler, TrendingUp, Percent, Activity, Home
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -13,9 +13,9 @@ const mainNav = [
 ];
 
 const freteNav = [
+  { to: "/admin/filial", label: "Filial", icon: Home },
   { to: "/admin/cities", label: "Cidades Atendidas", icon: Building2 },
-  { to: "/admin/neighborhoods", label: "Bairros", icon: MapPin },
-  { to: "/admin/km-settings", label: "Quilometragem", icon: Ruler },
+  { to: "/admin/km-tiers", label: "Tabela de KM", icon: Ruler },
   { to: "/admin/multipliers", label: "Multiplicadores", icon: TrendingUp },
   { to: "/admin/smart-margin", label: "Margem Inteligente", icon: Percent },
   { to: "/admin/car-additionals", label: "Adicionais Carro", icon: CarFront },

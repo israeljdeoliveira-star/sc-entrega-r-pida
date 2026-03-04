@@ -13,8 +13,8 @@ import Login from "./pages/Login";
 import AdminLayout from "./pages/admin/AdminLayout";
 import DashboardPage from "./pages/admin/DashboardPage";
 import CitiesPage from "./pages/admin/CitiesPage";
-import NeighborhoodsPage from "./pages/admin/NeighborhoodsPage";
-import KmSettingsPage from "./pages/admin/KmSettingsPage";
+import FilialConfigPage from "./pages/admin/FilialConfigPage";
+import KmTiersPage from "./pages/admin/KmTiersPage";
 import MultipliersPage from "./pages/admin/MultipliersPage";
 import SmartMarginPage from "./pages/admin/SmartMarginPage";
 import SimulationsLogPage from "./pages/admin/SimulationsLogPage";
@@ -52,9 +52,9 @@ const App = () => (
                 }
               >
                 <Route index element={<DashboardPage />} />
+                <Route path="filial" element={<FilialConfigPage />} />
                 <Route path="cities" element={<CitiesPage />} />
-                <Route path="neighborhoods" element={<NeighborhoodsPage />} />
-                <Route path="km-settings" element={<KmSettingsPage />} />
+                <Route path="km-tiers" element={<KmTiersPage />} />
                 <Route path="multipliers" element={<MultipliersPage />} />
                 <Route path="smart-margin" element={<SmartMarginPage />} />
                 <Route path="simulations-log" element={<SimulationsLogPage />} />

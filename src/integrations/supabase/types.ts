@@ -137,6 +137,45 @@ export type Database = {
         }
         Relationships: []
       }
+      filial_config: {
+        Row: {
+          cidade_filial: string
+          cobrar_deslocamento_fora_filial: boolean
+          created_at: string
+          endereco_filial: string
+          id: string
+          latitude_filial: number
+          longitude_filial: number
+          updated_at: string
+          valor_km_deslocamento: number
+          valor_minimo_filial: number
+        }
+        Insert: {
+          cidade_filial: string
+          cobrar_deslocamento_fora_filial?: boolean
+          created_at?: string
+          endereco_filial?: string
+          id?: string
+          latitude_filial?: number
+          longitude_filial?: number
+          updated_at?: string
+          valor_km_deslocamento?: number
+          valor_minimo_filial?: number
+        }
+        Update: {
+          cidade_filial?: string
+          cobrar_deslocamento_fora_filial?: boolean
+          created_at?: string
+          endereco_filial?: string
+          id?: string
+          latitude_filial?: number
+          longitude_filial?: number
+          updated_at?: string
+          valor_km_deslocamento?: number
+          valor_minimo_filial?: number
+        }
+        Relationships: []
+      }
       freight_settings: {
         Row: {
           car_fee_bubble_wrap: number
@@ -278,6 +317,27 @@ export type Database = {
           taxa_retorno_carro?: number
           updated_at?: string
           valor_base_nacional?: number
+        }
+        Relationships: []
+      }
+      km_tiers: {
+        Row: {
+          created_at: string
+          id: string
+          km_ate: number
+          valor: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          km_ate: number
+          valor: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          km_ate?: number
+          valor?: number
         }
         Relationships: []
       }
@@ -497,6 +557,7 @@ export type Database = {
           destination_city: string | null
           destination_neighborhood: string | null
           distance_km: number | null
+          distancia_deslocamento_km: number | null
           final_value: number | null
           id: string
           ip_hash: string | null
@@ -505,6 +566,8 @@ export type Database = {
           operational_value: number | null
           origin_city: string | null
           origin_neighborhood: string | null
+          valor_deslocamento: number | null
+          valor_entrega: number | null
           vehicle_type: string
         }
         Insert: {
@@ -513,6 +576,7 @@ export type Database = {
           destination_city?: string | null
           destination_neighborhood?: string | null
           distance_km?: number | null
+          distancia_deslocamento_km?: number | null
           final_value?: number | null
           id?: string
           ip_hash?: string | null
@@ -521,6 +585,8 @@ export type Database = {
           operational_value?: number | null
           origin_city?: string | null
           origin_neighborhood?: string | null
+          valor_deslocamento?: number | null
+          valor_entrega?: number | null
           vehicle_type: string
         }
         Update: {
@@ -529,6 +595,7 @@ export type Database = {
           destination_city?: string | null
           destination_neighborhood?: string | null
           distance_km?: number | null
+          distancia_deslocamento_km?: number | null
           final_value?: number | null
           id?: string
           ip_hash?: string | null
@@ -537,6 +604,8 @@ export type Database = {
           operational_value?: number | null
           origin_city?: string | null
           origin_neighborhood?: string | null
+          valor_deslocamento?: number | null
+          valor_entrega?: number | null
           vehicle_type?: string
         }
         Relationships: []
