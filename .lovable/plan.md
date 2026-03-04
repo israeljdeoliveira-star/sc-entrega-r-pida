@@ -1,77 +1,48 @@
 
 
-## Plano: Otimização, Paradas Inteligentes, Mapa e Fix CityAutocomplete
+## Plano: Separar Cidades Moto/Carro + Estados + Bairros Automáticos
 
-### 1. Fix CityAutocomplete — Porto Belo e cidades pequenas não aparecem
+### Problema Atual
+A tabela `cities` mistura cidades de moto e carro. O frontend moto carrega todas as cidades (incluindo as que deveriam ser apenas para carro), causando conflito na simulação. Os bairros precisam ser cadastrados manualmente um a um.
 
-**Problema**: O Nominatim usa `featuretype=city` que exclui cidades menores classificadas como "town" ou "village". Porto Belo é classificado como "town".
+### Mudanças
 
-**Solução** em `CityAutocomplete.tsx`:
-- Remover o parâmetro `featuretype: "city"` da busca Nominatim
-- Reduzir o debounce de 600ms para 350ms para resposta mais rápida
-- Primeiro verificar se a cidade existe no banco local (`cities` table) antes de ir ao Nominatim — se encontrar match local, retornar imediatamente
-- Manter o filtro por `addr.city || addr.town || addr.village`
+#### 1. Banco de dados
+- Adicionar coluna `vehicle_type` (text, default 'moto') na tabela `cities` para separar registros
+- Criar tabela `served_states` com colunas: `id`, `state_code` (ex: "SC"), `state_name`, `is_active`, `min_value`, `base_value`, `created_at` — usada para controlar quais estados o frete carro atende
+- Migrar as cidades existentes para `vehicle_type = 'moto'`
 
-### 2. Paradas extras com cobrança por base_value da cidade
+#### 2. Admin — CitiesPage
+- Adicionar Tabs: "🛵 Moto (Cidades)" e "🚗 Carro (Estados)"
+- Tab Moto: formulário atual de cidades (filtrado por `vehicle_type = 'moto'`)
+- Tab Carro: CRUD de estados atendidos (tabela `served_states`) com campos: Estado (sigla), Nome, Valor Mínimo, Valor Base, Ativa
 
-**Lógica atual**: A edge function cobra `originCity.min_value` por parada. O usuário quer cobrar `base_value` da cidade onde a parada acontece.
+#### 3. Admin — NeighborhoodsPage
+- Ao selecionar uma cidade no formulário de novo bairro, buscar automaticamente bairros via Nominatim (`q=bairros em [cidade], [estado]` ou query structurada)
+- Exibir lista de bairros encontrados com checkboxes para o admin selecionar quais adicionar em lote
+- Manter opção de adicionar bairro manualmente
 
-**Solução** em `Index.tsx` e `calculate-freight/index.ts`:
-- Cada parada extra precisa informar em qual cidade está (origem ou destino)
-- No frontend, ao selecionar endereço da parada, determinar se está mais perto da cidade de origem ou destino via Haversine
-- Enviar array `extra_stops` com `{ city_id, lat, lng }` para a edge function
-- Na edge function, para cada parada: buscar o `base_value` da cidade correspondente e somar ao total
-- Se a cidade da parada não estiver cadastrada, usar um valor base padrão
+#### 4. Frontend — Index.tsx (Moto)
+- Filtrar `cities` carregadas com `vehicle_type = 'moto'` (já feito via query)
+- Na query inicial: `supabase.from("cities").select("*").eq("is_active", true).eq("vehicle_type", "moto")`
 
-### 3. Opção "Otimizar Rota" para paradas
+#### 5. Frontend — CityAutocomplete (Carro)
+- No `CityAutocomplete`, carregar `served_states` em vez de `cities`
+- Quando o usuário selecionar uma cidade no Nominatim, verificar se o estado está na tabela `served_states` e ativo
+- Se o estado não for atendido, mostrar aviso
 
-**Solução** em `Index.tsx`:
-- Adicionar toggle `optimizeRoute` (default: false) que aparece quando `motoExtraStops > 0`
-- Quando ativado, reordenar as paradas usando algoritmo nearest-neighbor (greedy TSP) baseado nas coordenadas
-- Exibir a ordem otimizada para o usuário antes de calcular
-- Cada parada gera um pino adicional no mapa
-
-### 4. Pinos extras no mapa para paradas
-
-**Solução** em `FreightMap.tsx`:
-- Adicionar prop `extraStopCoords: [number, number][]`
-- Renderizar marcadores azuis para cada parada intermediária
-- Quando houver paradas, calcular rota OSRM passando por todos os pontos na ordem (origin → stops → destination)
-- Ajustar `fitBounds` para incluir todos os pinos
-
-### 5. Mapa com cor menos escura
-
-**Solução** em `FreightMap.tsx`:
-- Trocar de `dark_all` para `voyager` do CartoDB: `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png`
-- Tema moderno, neutro, legível — funciona bem em light e dark mode
-- Manter a cor da rota amarela para contraste
-
-### 6. Otimização de performance
-
-**Solução** em `Index.tsx`:
-- Reduzir debounce de cálculo de 500ms para 300ms
-- Lazy load do componente `FreightMap` com `React.lazy` + `Suspense`
-- Memoizar componentes pesados com `useMemo`
-- No `CityAutocomplete`, reduzir debounce para 350ms
-
-### 7. Fix loop infinito de cálculo
-
-**Problema**: O `handleSimulate` no `useCallback` tem muitas dependências (toggles). Mudar qualquer toggle recria a função, que dispara o `useEffect` auto-calculate novamente.
-
-**Solução**:
-- Separar o `useEffect` auto-calculate para depender apenas de `routeDistance` (não de `handleSimulate`)
-- Usar um ref para armazenar a versão mais recente de `handleSimulate`
-- O effect chama `handleSimulateRef.current(routeDistance)` — assim não recria quando toggles mudam
-- Os toggles só recalculam quando o usuário clica explicitamente ou quando uma nova rota é calculada
-
----
+#### 6. Edge Function — calculate-freight
+- Para modo carro: buscar `served_states` pelo estado da cidade selecionada para obter `min_value` e `base_value` do estado
+- Fallback para valores nacionais se estado não encontrado
 
 ### Arquivos alterados
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `src/components/CityAutocomplete.tsx` | Fix Porto Belo, remover featuretype, reduzir debounce, priorizar banco local |
-| `src/components/FreightMap.tsx` | Tema voyager, pinos de paradas extras, rota multi-waypoint |
-| `src/pages/Index.tsx` | Paradas com base_value, otimizar rota, fix loop, lazy map, performance |
-| `supabase/functions/calculate-freight/index.ts` | Cobrar base_value por parada baseado na cidade |
+| Migration SQL | Adicionar `vehicle_type` em `cities`, criar `served_states` |
+| `CitiesPage.tsx` | Tabs Moto/Carro, CRUD de estados |
+| `NeighborhoodsPage.tsx` | Auto-busca de bairros via Nominatim |
+| `Index.tsx` | Filtrar cities por `vehicle_type='moto'` |
+| `CityAutocomplete.tsx` | Validar contra `served_states` |
+| `calculate-freight/index.ts` | Usar `served_states` para carro |
 
