@@ -1,46 +1,38 @@
 
 
-## Plano: Moto sem seleção de cidade — cálculo 100% por KM
+## Plano: Tornar busca de endereço tolerante a erros e amigável para idosos
 
-### Problema
-O simulador moto exige selecionar cidade de origem e destino nos dropdowns. O usuário quer que as cidades cadastradas sirvam **apenas para exibir** quais cidades são atendidas, e o cálculo seja **100% baseado nos KM tiers + filial**.
+### Problemas identificados
 
-### Mudanças
+1. **`extractNumberFromInput` exige vírgula + espaço** — `rua 230,570` não extrai número porque o regex espera `,\s*(\d+)` mas o `570` vem colado
+2. **Busca exige mínimo 3 chars E `cityName`** — linha 95: `if (q.length < 3 || !cityName)` bloqueia a busca quando `cityName` está vazio (que é o caso novo do fluxo moto sem dropdown)
+3. **Sem normalização do input** — maiúsculas, acentos, espaços extras atrapalham
+4. **Debounce de 800ms** — muito lento para feedback rápido
+5. **Limite de 6 resultados** — ok, manter
 
-#### 1. Frontend — `src/pages/Index.tsx`
-- **Remover dropdowns de cidade** no tab Moto (origin/dest Select)
-- Usar `AddressAutocomplete` diretamente, sem precisar de `cityName` pré-selecionada
-- Extrair o nome da cidade automaticamente do resultado do Nominatim (campo `address.town` ou `address.city`)
-- Passar `origin_city_name` e `destination_city_name` extraídos do endereço para a edge function
-- Manter a lista de cidades apenas para exibir "Cidades atendidas" (informativo)
-- Remover dependência de `originCityId`/`destCityId` para o fluxo moto
+### Mudanças em `AddressAutocomplete.tsx`
 
-#### 2. `AddressAutocomplete.tsx`
-- Tornar `cityName` opcional — quando vazio/undefined, buscar sem filtro de cidade (apenas "SC, Brazil")
-- Não filtrar resultados por `cityName` quando ele não for fornecido
-- Adicionar campo `cityName` no retorno `AddressSelection` (extraído do Nominatim `address.town`/`address.city`)
+**1. Corrigir guarda de busca** — remover `!cityName` da condição de bloqueio (já que cityName agora é opcional)
 
-#### 3. Edge Function — Sem mudanças
-A edge function moto SC (linhas 89-201) já funciona corretamente:
-- Usa `origin_city_name` (string) para comparar com filial
-- Usa `distance_km` + `km_tiers` para calcular valor
-- Não depende de `origin_city_id` / `destination_city_id`
+**2. Normalizar input antes de enviar ao Nominatim**
+- Remover espaços extras, normalizar vírgulas coladas (`rua 230,570` → `rua 230, 570`)
+- Função `normalizeQuery(q)`: limpar e formatar
 
-### Fluxo Moto Atualizado
+**3. Melhorar `extractNumberFromInput`**
+- Aceitar número colado na vírgula: `/,\s*(\d+)/` → aceitar também número no final ou separado por espaço
+- Regex mais flexível: procurar qualquer sequência numérica que pareça número de casa (ex: último grupo de dígitos)
 
-```text
-1. Usuário digita endereço de coleta (sem selecionar cidade)
-2. Nominatim retorna resultado com cidade detectada
-3. Usuário digita endereço de destino
-4. Mapa calcula distância via OSRM
-5. Edge function recebe: distance_km + origin_city_name
-6. Calcula: buscarValorPorKm(distância) + deslocamento (se fora da filial)
-```
+**4. Busca com fallback**
+- Se busca com query completa retorna 0 resultados, tentar busca só com a parte textual (sem números)
+- Isso ajuda quando o usuário digita "rua 230, 570" — busca "rua 230" se a primeira falhar
 
-### Arquivos alterados
+**5. Reduzir debounce** para 500ms
+
+**6. Não filtrar por cityName quando vazio** — já parcialmente feito, mas a guarda na linha 95 bloqueia tudo
+
+### Arquivo alterado
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `AddressAutocomplete.tsx` | cityName opcional, retornar cidade detectada |
-| `Index.tsx` | Remover dropdowns cidade no tab moto, extrair cidade do endereço |
+| `AddressAutocomplete.tsx` | Normalização, regex flexível, fallback de busca, remover bloqueio cityName |
 
