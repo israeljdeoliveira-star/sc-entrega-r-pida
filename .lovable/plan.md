@@ -1,31 +1,62 @@
 
 
-## Corrigir Autocomplete: Bairro Validado pelo Mapa + Número na Sugestão
+## Plano: Melhorias no Simulador — Número Obrigatório, Referência, Paradas com Endereço, Mapa Escuro
 
-### Problema
-Quando o usuário digita um endereço, o sistema não mostra o número junto com a rua nas sugestões, e se o usuário digitar/pensar um bairro errado, o sistema não corrige. O bairro deve vir **sempre do Nominatim** (fonte verdadeira), sobrepondo qualquer suposição do usuário.
+### 1. Número obrigatório no endereço (`AddressAutocomplete.tsx`)
 
-### Solução — `src/components/AddressAutocomplete.tsx`
+- Adicionar prop `requireNumber?: boolean` (default true)
+- Após seleção, se `houseNumber` estiver vazio, exibir alerta vermelho: "⚠️ Informe o número do endereço (ex: Rua Brasil, 123)"
+- Bloquear o `onSelect` de disparar cálculo até o número estar presente
+- Callback `onSelect` só dispara quando número válido
 
-1. **Adicionar `house_number` à interface `NominatimResult`** (`address.house_number`)
+### 2. Campo Referência abaixo de cada endereço (`Index.tsx`)
 
-2. **Extrair número do input do usuário** via regex (ex: "Rua Brasil, 570" → extrai "570") quando Nominatim não retornar `house_number`
+- Adicionar campo `Input` com placeholder "Ponto de referência (opcional)" abaixo de cada bloco de endereço (coleta e destino, tanto moto quanto carro)
+- States: `originRef`, `destRef`, `carOriginRef`, `carDestRef`
+- Incluir referência na mensagem do WhatsApp
 
-3. **Atualizar `formatResult`** para exibir:
-   ```
-   Rua 230, 570 - Meia Praia
-   Rua Brasil, 123 - Centro
-   ```
-   Formato: `[Rua], [Número] - [Bairro]`
+### 3. Links do Google Maps na mensagem WhatsApp (`Index.tsx`)
 
-4. **Bairro sempre do mapa**: O `neighborhood` retornado no `onSelect` vem exclusivamente do Nominatim (`suburb` → `neighbourhood` → `city_district` → fallback do `display_name`). O usuário nunca define o bairro manualmente — o sistema corrige automaticamente com base na localização real da rua.
+- Para cada endereço com coordenadas, gerar link: `https://www.google.com/maps?q={lat},{lng}`
+- Incluir na mensagem do WhatsApp junto ao endereço de coleta e destino
 
-5. **Adicionar `houseNumber` ao `AddressSelection`** para uso no log e WhatsApp
+### 4. Peso estimado com exemplos claros (`Index.tsx`)
 
-6. **Exibir badge do bairro detectado** abaixo do campo após seleção, mostrando: `📍 Bairro: Centro` — confirmação visual ao usuário de que o sistema identificou o bairro correto.
+- Atualizar `WEIGHT_OPTIONS` para exibir exemplos mais descritivos:
+  - `"🍉 Melancia Pequena (~5kg)"` em vez de `"🍉 Melancia pequena"`
+  - Cada exemplo com nome completo + peso entre parênteses
 
-### Arquivo alterado
+### 5. Paradas extras com blocos de endereço (`Index.tsx`)
+
+- Quando `motoExtraStops > 0`, renderizar N blocos de endereço (cidade + rua + referência) para cada parada
+- Cada bloco usa `AddressAutocomplete` restrito à cidade de origem
+- States: `extraStopAddresses: AddressSelection[]`, `extraStopRefs: string[]`
+- Incluir endereços das paradas na mensagem do WhatsApp
+
+### 6. Valor parada extra = min_value da cidade (`calculate-freight/index.ts`)
+
+- Na edge function, ao calcular paradas extras do moto, usar `city.min_value` em vez de `moto_extra_stop_fee` fixo
+- Buscar o `min_value` da cidade de origem já carregada
+
+### 7. Mapa tema escuro (`FreightMap.tsx`)
+
+- Trocar tile layer de `light_all` para `dark_all` do CartoDB:
+  `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png`
+- Alterar cor da rota para algo mais visível no escuro (ex: `hsl(45, 100%, 60%)` amarelo)
+
+### 8. Mapa mais próximo da rota (`FreightMap.tsx`)
+
+- Reduzir padding do `fitBounds` de `[40, 40]` para `[30, 30]`
+- Aumentar altura do mapa de `250px` para `300px`
+
+---
+
+### Arquivos alterados
+
 | Arquivo | Alteração |
 |---------|-----------|
-| `src/components/AddressAutocomplete.tsx` | Número nas sugestões, bairro do mapa, badge visual |
+| `src/components/AddressAutocomplete.tsx` | Validação número obrigatório |
+| `src/components/FreightMap.tsx` | Tema escuro, zoom mais próximo, rota mais visível |
+| `src/pages/Index.tsx` | Campo referência, paradas com endereço, links Google Maps, peso atualizado |
+| `supabase/functions/calculate-freight/index.ts` | Parada extra usa min_value da cidade |
 
