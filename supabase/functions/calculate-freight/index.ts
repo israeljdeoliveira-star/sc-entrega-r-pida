@@ -200,18 +200,36 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: `Distância excede o raio máximo de ${settings.max_radius_km} km.` }, 400);
       }
 
+      // Try to find served_state for better pricing
+      const originState = body.origin_state || null;
+      let stateBaseValue = num(settings.valor_base_nacional);
+      let stateMinValue = num(settings.national_min_value);
+
+      if (originState) {
+        const { data: servedState } = await supabase
+          .from("served_states")
+          .select("*")
+          .eq("state_code", originState)
+          .eq("is_active", true)
+          .single();
+
+        if (servedState) {
+          stateBaseValue = Math.max(num(servedState.base_value), stateBaseValue);
+          stateMinValue = Math.max(num(servedState.min_value), stateMinValue);
+        }
+      }
+
       const pricePerKm = num(settings.national_price_per_km);
-      const valorBase = num(settings.valor_base_nacional);
       const carMinValue = num(settings.car_min_value, 98);
 
       const combinedMult = calcConditionMult(settings as Record<string, unknown>, "mult_car_", conditions, 1.0);
 
-      const baseValue = Math.max(valorBase, carMinValue);
+      const baseValue = Math.max(stateBaseValue, carMinValue);
       const valorOperacional = baseValue + (clientDistance * pricePerKm) * combinedMult + additionalsTotal;
       const margemTotal = calcMargin(settings as Record<string, unknown>, conditions, clientDistance);
 
       let valorFinal = Math.ceil(valorOperacional * (1 + margemTotal / 100));
-      const minValue = Math.max(num(settings.national_min_value), carMinValue);
+      const minValue = Math.max(stateMinValue, carMinValue);
       valorFinal = Math.max(valorFinal, minValue);
 
       if (multiTripDiscountPct > 0) {
@@ -220,7 +238,7 @@ Deno.serve(async (req) => {
 
       const configSnapshot = {
         mode, vehicle_type, pricePerKm, baseValue, combinedMult, margemTotal,
-        additionalsTotal, multiTripDiscountPct, valorFinal,
+        additionalsTotal, multiTripDiscountPct, valorFinal, originState,
       };
 
       await supabase.from("simulations_log").insert({

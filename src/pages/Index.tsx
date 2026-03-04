@@ -139,6 +139,7 @@ export default function Index() {
   // Car state
   const [carOriginCityId, setCarOriginCityId] = useState("");
   const [carOriginCityName, setCarOriginCityName] = useState("");
+  const [carOriginState, setCarOriginState] = useState("");
   const [carDestCityId, setCarDestCityId] = useState("");
   const [carDestCityName, setCarDestCityName] = useState("");
   const [carOriginAddress, setCarOriginAddress] = useState<AddressSelection | null>(null);
@@ -182,7 +183,7 @@ export default function Index() {
   const scrollToSection = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
 
   useEffect(() => {
-    supabase.from("cities").select("*").eq("is_active", true).order("name")
+    supabase.from("cities").select("*").eq("is_active", true).eq("vehicle_type", "moto").order("name")
       .then(({ data }) => { if (data) setCities(data); });
   }, []);
 
@@ -223,6 +224,7 @@ export default function Index() {
   const handleCarOriginCitySelect = useCallback((sel: CitySelection) => {
     setCarOriginCityId(sel.cityId || "");
     setCarOriginCityName(sel.cityName);
+    setCarOriginState(sel.state || "");
     setCarOriginAddress(null);
     setOriginCoords(null);
     setOriginFarWarning(false);
@@ -315,6 +317,7 @@ export default function Index() {
             mode: carOriginCityId && carDestCityId ? "sc" : "national",
             origin_city_id: carOriginCityId || undefined,
             destination_city_id: carDestCityId || undefined,
+            origin_state: carOriginState || undefined,
             vehicle_type: "car",
             distance_km: distance,
             car_additionals: carAdditionals,
