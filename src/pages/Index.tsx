@@ -164,6 +164,7 @@ export default function Index() {
 
   // Result
   const [result, setResult] = useState<FreightResult | null>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [volumeAlert, setVolumeAlert] = useState(false);
@@ -327,6 +328,7 @@ export default function Index() {
       if (data?.error) { setError(data.error); return; }
 
       setResult({ ...data, estimated_time_min: routeDuration ? Math.round(routeDuration) : undefined });
+      setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
 
       await logSimulation({
         origin_city: getOriginCityName() || undefined,
@@ -801,7 +803,7 @@ Realizamos apenas o transporte.`;
 
               {/* Result */}
               {result && (
-                <div className="rounded-xl border-2 border-primary/20 bg-accent/50 p-4 sm:p-6 space-y-4">
+                <div ref={resultRef} className="rounded-xl border-2 border-primary/20 bg-accent/50 p-4 sm:p-6 space-y-4">
                   <div>
                     <h3 className="font-bold text-lg">Resultado da Simulação</h3>
                     <p className="text-sm text-muted-foreground">{getOriginCityName()} → {getDestCityName()} • {mode === "sc" ? "🛵 Motoboy" : "🚗 Carro"}</p>
