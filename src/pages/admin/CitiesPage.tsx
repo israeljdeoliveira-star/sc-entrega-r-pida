@@ -57,9 +57,6 @@ export default function CitiesPage() {
   const [cities, setCities] = useState<City[]>([]);
   const [name, setName] = useState("");
   const [state, setState] = useState("SC");
-  const [minValue, setMinValue] = useState("0");
-  const [baseValue, setBaseValue] = useState("0");
-  const [density, setDensity] = useState("media");
   const [observation, setObservation] = useState("");
   const [editingCity, setEditingCity] = useState<City | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -88,8 +85,8 @@ export default function CitiesPage() {
   const handleSaveCity = async () => {
     if (!name.trim()) return;
     const payload = {
-      name: name.trim(), state, min_value: parseFloat(minValue), base_value: parseFloat(baseValue),
-      density, observation: observation.trim() || null, vehicle_type: "moto",
+      name: name.trim(), state,
+      observation: observation.trim() || null, vehicle_type: "moto" as const,
     };
     if (editingCity) {
       const { error } = await supabase.from("cities").update(payload).eq("id", editingCity.id);
@@ -103,8 +100,8 @@ export default function CitiesPage() {
   };
 
   const resetCityForm = () => {
-    setName(""); setState("SC"); setMinValue("0"); setBaseValue("0");
-    setDensity("media"); setObservation(""); setEditingCity(null); setDialogOpen(false);
+    setName(""); setState("SC");
+    setObservation(""); setEditingCity(null); setDialogOpen(false);
   };
 
   const toggleCityActive = async (city: City) => {
@@ -119,8 +116,7 @@ export default function CitiesPage() {
 
   const openEditCity = (city: City) => {
     setEditingCity(city); setName(city.name); setState(city.state);
-    setMinValue(String(city.min_value)); setBaseValue(String(city.base_value));
-    setDensity(city.density); setObservation(city.observation || ""); setDialogOpen(true);
+    setObservation(city.observation || ""); setDialogOpen(true);
   };
 
   const openNewCity = () => { resetCityForm(); setDialogOpen(true); };
@@ -172,8 +168,6 @@ export default function CitiesPage() {
 
   const openNewState = () => { resetStateForm(); setStateDialogOpen(true); };
 
-  const densityLabel: Record<string, string> = { baixa: "Baixa", media: "Média", alta: "Alta" };
-  const densityVariant = (d: string) => d === "alta" ? "destructive" as const : d === "baixa" ? "secondary" as const : "default" as const;
 
   return (
     <Card>
@@ -202,23 +196,6 @@ export default function CitiesPage() {
                       <div className="space-y-2"><Label>Nome da Cidade</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Florianópolis" /></div>
                       <div className="space-y-2"><Label>Estado</Label><Input value={state} onChange={(e) => setState(e.target.value)} placeholder="SC" /></div>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-2">
-                        <Label>Valor Mínimo (R$)</Label>
-                        <Input type="number" step="0.01" value={minValue} onChange={(e) => setMinValue(e.target.value)} />
-                        <p className="text-xs text-muted-foreground">Piso mínimo do frete. Nenhum frete que envolva esta cidade terá valor abaixo deste.</p>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Valor Base (R$)</Label>
-                        <Input type="number" step="0.01" value={baseValue} onChange={(e) => setBaseValue(e.target.value)} />
-                        <p className="text-xs text-muted-foreground">Quanto custa uma entrega dentro desta cidade (ex: R$15). Para fretes entre cidades, o maior valor base é usado como ponto de partida.</p>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Densidade</Label>
-                      <Select value={density} onValueChange={setDensity}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="baixa">Baixa</SelectItem><SelectItem value="media">Média</SelectItem><SelectItem value="alta">Alta</SelectItem></SelectContent></Select>
-                      <p className="text-xs text-muted-foreground">Afeta o multiplicador do frete. Baixa (−10%): cidades com pouco trânsito. Média: padrão. Alta (+15%): trânsito intenso, ruas estreitas.</p>
-                    </div>
                     <div className="space-y-2">
                       <Label>Observação Interna</Label>
                       <Textarea value={observation} onChange={(e) => setObservation(e.target.value)} placeholder="Notas internas..." rows={2} />
@@ -234,15 +211,12 @@ export default function CitiesPage() {
             ) : (
               <div className="overflow-x-auto">
                 <Table>
-                  <TableHeader><TableRow><TableHead>Cidade</TableHead><TableHead>UF</TableHead><TableHead className="text-right">V. Mínimo</TableHead><TableHead className="text-right">V. Base</TableHead><TableHead>Densidade</TableHead><TableHead>Ativa</TableHead><TableHead className="text-right">Ações</TableHead></TableRow></TableHeader>
+                  <TableHeader><TableRow><TableHead>Cidade</TableHead><TableHead>UF</TableHead><TableHead>Ativa</TableHead><TableHead className="text-right">Ações</TableHead></TableRow></TableHeader>
                   <TableBody>
                     {cities.map((city) => (
                       <TableRow key={city.id} className={!city.is_active ? "opacity-50" : ""}>
                         <TableCell className="font-medium">{city.name}</TableCell>
                         <TableCell>{city.state}</TableCell>
-                        <TableCell className="text-right">R$ {Number(city.min_value).toFixed(2)}</TableCell>
-                        <TableCell className="text-right">R$ {Number(city.base_value).toFixed(2)}</TableCell>
-                        <TableCell><Badge variant={densityVariant(city.density)}>{densityLabel[city.density] || city.density}</Badge></TableCell>
                         <TableCell><Switch checked={city.is_active} onCheckedChange={() => toggleCityActive(city)} /></TableCell>
                         <TableCell className="text-right space-x-1">
                           <Button variant="ghost" size="icon" onClick={() => openEditCity(city)}><Pencil className="h-4 w-4" /></Button>
