@@ -1,38 +1,38 @@
 
 
-## Plano: Tornar busca de endereço tolerante a erros e amigável para idosos
+## Plano: Corrigir cálculo travado + melhorar feedback visual + animar rota no mapa
 
 ### Problemas identificados
 
-1. **`extractNumberFromInput` exige vírgula + espaço** — `rua 230,570` não extrai número porque o regex espera `,\s*(\d+)` mas o `570` vem colado
-2. **Busca exige mínimo 3 chars E `cityName`** — linha 95: `if (q.length < 3 || !cityName)` bloqueia a busca quando `cityName` está vazio (que é o caso novo do fluxo moto sem dropdown)
-3. **Sem normalização do input** — maiúsculas, acentos, espaços extras atrapalham
-4. **Debounce de 800ms** — muito lento para feedback rápido
-5. **Limite de 6 resultados** — ok, manter
+1. **Cálculo fica carregando infinitamente** — O `handleSimulate` é chamado pelo `useEffect` que observa `routeDistance`, mas o `loading` nunca é limpo se a edge function retornar erro com `data.error`. Na linha 325: `if (data?.error) { setError(data.error); return; }` — faz `return` sem passar pelo `finally` block? Na verdade passa pelo finally sim. Mas o problema real é que **`originAddress`** pode ser `null` quando o auto-calculate dispara, pois `routeDistance` é setado pelo mapa antes de o `handleSimulate` ter os dados completos. Mais: se `originAddress?.lat` é undefined, o edge function não recebe coords do origin e retorna `distanciaDeslocamento = 0` mas funciona. O problema mais provável: **o cálculo no modo moto não está sendo disparado** porque `originCityName` pode estar vazio (cidade não detectada pelo Nominatim). Preciso verificar se a cidade é necessária. Na edge function, `cidadeColeta` vazio não causa erro, mas `isColetaNaFilial` será `false`, o que faria cobrar deslocamento com `originLat=0`, resultando em valor estranho mas não erro. Vou olhar mais de perto.
 
-### Mudanças em `AddressAutocomplete.tsx`
+   **Causa raiz provável**: O `isCalculatingRef.current` pode ficar `true` se uma chamada anterior falhou silenciosamente (ex: network error não capturado), bloqueando chamadas futuras. Além disso, o debounce de 300ms + a lógica de `isCalculatingRef` pode travar.
 
-**1. Corrigir guarda de busca** — remover `!cityName` da condição de bloqueio (já que cityName agora é opcional)
+2. **Feedback de "Calculando" é fraco** — apenas um spinner pequeno com texto
+3. **Rota no mapa é estática** — sem animação do trajeto
 
-**2. Normalizar input antes de enviar ao Nominatim**
-- Remover espaços extras, normalizar vírgulas coladas (`rua 230,570` → `rua 230, 570`)
-- Função `normalizeQuery(q)`: limpar e formatar
+### Mudanças
 
-**3. Melhorar `extractNumberFromInput`**
-- Aceitar número colado na vírgula: `/,\s*(\d+)/` → aceitar também número no final ou separado por espaço
-- Regex mais flexível: procurar qualquer sequência numérica que pareça número de casa (ex: último grupo de dígitos)
+#### 1. `FreightMap.tsx` — Animação da rota
+- Após desenhar a rota completa, animar um marcador (ícone de moto/carro) percorrendo os pontos da rota
+- Usar `setInterval` para mover o marcador ponto a ponto ao longo das coordenadas da rota
+- A rota amarela aparece progressivamente (polyline animada) ou um marcador se move sobre ela
+- Implementação: desenhar a rota completa em cor mais clara, depois animar uma polyline mais escura/brilhante crescendo do início ao fim
 
-**4. Busca com fallback**
-- Se busca com query completa retorna 0 resultados, tentar busca só com a parte textual (sem números)
-- Isso ajuda quando o usuário digita "rua 230, 570" — busca "rua 230" se a primeira falhar
+#### 2. `Index.tsx` — Corrigir cálculo travado
+- Adicionar timeout safety no `isCalculatingRef` — se ficar `true` por mais de 15s, resetar
+- Melhorar o indicador de "Calculando" com texto mais visível, pulsante
+- Garantir que erros de rede no edge function não travem o ref
+- Adicionar `originAddress` nas dependências do cálculo para garantir que coords estão disponíveis
 
-**5. Reduzir debounce** para 500ms
+#### 3. `Index.tsx` — Feedback visual melhorado
+- Substituir o spinner simples por um card com animação pulsante e mensagem mais clara
+- Mostrar "Calculando sua rota..." com ícone animado maior
 
-**6. Não filtrar por cityName quando vazio** — já parcialmente feito, mas a guarda na linha 95 bloqueia tudo
-
-### Arquivo alterado
+### Arquivos alterados
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `AddressAutocomplete.tsx` | Normalização, regex flexível, fallback de busca, remover bloqueio cityName |
+| `FreightMap.tsx` | Animação da rota (marcador percorrendo trajeto) |
+| `Index.tsx` | Fix cálculo travado (safety timeout no ref), feedback "Calculando" melhorado |
 
