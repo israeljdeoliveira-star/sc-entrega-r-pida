@@ -365,6 +365,16 @@ export default function Index() {
     return () => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); };
   }, [routeDistance]);
 
+  // Recalculate when motoReturn toggles (if route already exists)
+  useEffect(() => {
+    if (!routeDistance || routeDistance <= 0 || mode !== "sc") return;
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      handleSimulateRef.current?.(routeDistance);
+    }, 300);
+    return () => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); };
+  }, [motoReturn]);
+
   // Volume alert for car
   useEffect(() => {
     const text = (carItemDescription + " " + carItemDetails).toLowerCase();
