@@ -70,29 +70,55 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// Nearest-neighbor route optimization
-function optimizeStopOrder(origin: [number, number], stops: (AddressSelection | null)[], dest: [number, number]): number[] {
-  const validIndices = stops.map((s, i) => s ? i : -1).filter(i => i >= 0);
-  if (validIndices.length <= 1) return validIndices;
+// Nearest-neighbor + 2-opt route optimization
+function optimizeStopOrder(origin: [number, number], stops: ExtraStop[], dest: [number, number]): string[] {
+  const validStops = stops.filter(s => s.address);
+  if (validStops.length <= 1) return validStops.map(s => s.id);
 
+  // Build distance matrix
+  const points: [number, number][] = [origin, ...validStops.map(s => [s.address!.lat, s.address!.lng] as [number, number]), dest];
+  const n = points.length;
+  const dist = (i: number, j: number) => haversineDistance(points[i][0], points[i][1], points[j][0], points[j][1]);
+
+  // Nearest-neighbor to get initial order (indices 1..n-2 are stops)
+  const stopIndices = Array.from({ length: validStops.length }, (_, i) => i + 1);
   const ordered: number[] = [];
-  const remaining = new Set(validIndices);
-  let current = origin;
+  const remaining = new Set(stopIndices);
+  let current = 0; // origin
 
   while (remaining.size > 0) {
     let bestIdx = -1;
     let bestDist = Infinity;
     for (const idx of remaining) {
-      const s = stops[idx]!;
-      const d = haversineDistance(current[0], current[1], s.lat, s.lng);
+      const d = dist(current, idx);
       if (d < bestDist) { bestDist = d; bestIdx = idx; }
     }
     ordered.push(bestIdx);
-    const s = stops[bestIdx]!;
-    current = [s.lat, s.lng];
+    current = bestIdx;
     remaining.delete(bestIdx);
   }
-  return ordered;
+
+  // 2-opt improvement
+  let improved = true;
+  while (improved) {
+    improved = false;
+    for (let i = 0; i < ordered.length - 1; i++) {
+      for (let j = i + 1; j < ordered.length; j++) {
+        const prevI = i === 0 ? 0 : ordered[i - 1];
+        const nextJ = j === ordered.length - 1 ? n - 1 : ordered[j + 1];
+        const oldDist = dist(prevI, ordered[i]) + dist(ordered[j], nextJ);
+        const newDist = dist(prevI, ordered[j]) + dist(ordered[i], nextJ);
+        if (newDist < oldDist - 0.001) {
+          // Reverse segment i..j
+          const segment = ordered.slice(i, j + 1).reverse();
+          ordered.splice(i, j - i + 1, ...segment);
+          improved = true;
+        }
+      }
+    }
+  }
+
+  return ordered.map(idx => validStops[idx - 1].id);
 }
 
 export default function Index() {
