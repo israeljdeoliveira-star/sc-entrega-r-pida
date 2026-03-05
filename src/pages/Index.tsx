@@ -478,7 +478,38 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
 
 \uD83D\uDCCD Entrega: ${destText}${dName ? `\n\uD83D\uDC64 Destinat\u00e1rio: ${dName}` : ""}${dRef ? `\n\uD83D\uDCCC Ref: ${dRef}` : ""}${destMapLink ? `\n\uD83D\uDDFA\uFE0F Mapa: ${destMapLink}` : ""}`;
 
-    msg += "\n\nEstamos à disposição! 😊";
+    // Extra stops
+    if (mode === "sc" && extraStops.length > 0) {
+      const stopsForMsg = optimizeRoute ? orderedStops : extraStops;
+      stopsForMsg.forEach((stop, i) => {
+        const stopAddr = stop.address;
+        const stopRef = stop.reference || "";
+        if (stopAddr) {
+          const stopText = `${stopAddr.street}${stopAddr.houseNumber ? `, ${stopAddr.houseNumber}` : ""} - ${stopAddr.neighborhood || ""} - ${stop.cityName || oCityName}`;
+          const stopMapLink = buildGoogleMapsLink(stopAddr.lat, stopAddr.lng);
+          msg += `\n\n\uD83D\uDCCD Parada ${i + 1}: ${stopText}${stopRef ? `\n\uD83D\uDCCC Ref: ${stopRef}` : ""}\n\uD83D\uDDFA\uFE0F Mapa: ${stopMapLink}`;
+        } else {
+          msg += `\n\n\uD83D\uDCCD Parada ${i + 1}: (endere\u00e7o n\u00e3o informado)`;
+        }
+      });
+    }
+
+    msg += `\n\n\uD83D\uDE9A Tipo: ${tipo}\n\uD83D\uDCCF Dist\u00e2ncia: ${result.distance_km.toFixed(1)} km\n\uD83D\uDCB0 Valor estimado: R$ ${result.final_value.toFixed(2)}`;
+
+    msg += `\n\n\u26A0\uFE0F Esta \u00e9 uma simula\u00e7\u00e3o autom\u00e1tica.\nO valor pode sofrer altera\u00e7\u00e3o ap\u00f3s confer\u00eancia de detalhes.`;
+
+    if (!isMotoboy) {
+      msg += `\n\n\uD83D\uDCE6 Itens fr\u00e1geis devem estar bem embalados.\nRealizamos apenas o transporte.`;
+    }
+
+    if (carMultiTrip && mode === "national") {
+      msg += "\n\nSe precisar de mais de uma viagem, aplicamos desconto conforme informado.";
+    }
+    if (mode === "national" && carHasFragile) {
+      msg += "\n\n\uD83D\uDD0E Esta \u00e9 uma simula\u00e7\u00e3o autom\u00e1tica. O valor pode sofrer ajustes ap\u00f3s confer\u00eancia dos itens.";
+    }
+
+    msg += "\n\nEstamos \u00e0 disposi\u00e7\u00e3o! \uD83D\uDE0A";
 
     return `https://wa.me/${WHATSAPP_FIXED}?text=${encodeURIComponent(msg)}`;
   };
