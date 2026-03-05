@@ -154,10 +154,10 @@ export default function Index() {
   const [weight, setWeight] = useState("");
   const [category, setCategory] = useState("");
   const [motoReturn, setMotoReturn] = useState(false);
-  const [motoExtraStops, setMotoExtraStops] = useState(0);
-  const [extraStopAddresses, setExtraStopAddresses] = useState<(AddressSelection | null)[]>([]);
-  const [extraStopRefs, setExtraStopRefs] = useState<string[]>([]);
+  const [extraStops, setExtraStops] = useState<ExtraStop[]>([]);
   const [optimizeRoute, setOptimizeRoute] = useState(false);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   // Car state
   const [carOriginCityId, setCarOriginCityId] = useState("");
