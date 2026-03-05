@@ -665,51 +665,44 @@ Realizamos apenas o transporte.`;
 
                     <div className="space-y-2">
                       <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-background border">
-                        <span className="text-sm font-medium">📍 Paradas extras</span>
-                        <div className="flex items-center gap-2">
-                          <Button variant="outline" size="icon" className="h-8 w-8" disabled={motoExtraStops <= 0} onClick={() => setMotoExtraStops(v => Math.max(0, v - 1))}>-</Button>
-                          <span className="text-sm font-semibold w-6 text-center">{motoExtraStops}</span>
-                          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setMotoExtraStops(v => v + 1)}>
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        <span className="text-sm font-medium">📍 Paradas extras ({extraStops.length})</span>
+                        <Button variant="outline" size="sm" className="h-8 gap-1" onClick={handleAddStop}>
+                          <Plus className="h-3.5 w-3.5" /> Adicionar
+                        </Button>
                       </div>
-                      {motoExtraStops > 0 && <p className="text-xs text-muted-foreground pl-4">✅ {motoExtraStops} parada(s) extra(s) — R$ 7,00 por parada adicionada.</p>}
+                      {extraStops.length > 0 && <p className="text-xs text-muted-foreground pl-4">✅ {extraStops.length} parada(s) extra(s) — R$ 7,00 por parada adicionada.</p>}
                     </div>
 
                     {/* Optimize route toggle */}
-                    {motoExtraStops > 0 && (
-                      <ToggleQuestion label="Otimizar rota?" emoji="🗺️" checked={optimizeRoute} onChange={setOptimizeRoute} />
-                    )}
-                    {optimizeRoute && motoExtraStops > 0 && (
-                      <p className="text-xs text-muted-foreground pl-4">✅ As paradas serão reordenadas para a rota mais eficiente.</p>
+                    {extraStops.length > 1 && (
+                      <>
+                        <ToggleQuestion label="Otimizar rota?" emoji="🗺️" checked={optimizeRoute} onChange={setOptimizeRoute} />
+                        <p className="text-xs text-muted-foreground pl-4">
+                          {optimizeRoute ? "✅ Ordem automática otimizada (nearest-neighbor + 2-opt)" : "📋 Ordem manual"}
+                        </p>
+                      </>
                     )}
 
-                    {/* Extra stop address blocks */}
-                    {motoExtraStops > 0 && (
-                      <div className="space-y-4 pl-2 border-l-2 border-primary/30 ml-2">
-                        {Array.from({ length: motoExtraStops }).map((_, i) => (
-                          <div key={i} className="space-y-2">
-                            <div className="flex items-center gap-2 text-sm font-medium text-primary">
-                              <MapPin className="h-3.5 w-3.5" /> Parada {i + 1}
-                            </div>
-                            <AddressAutocomplete
-                              placeholder={`Endereço da parada ${i + 1}`}
-                              onSelect={(sel) => handleExtraStopSelect(i, sel)}
-                            />
-                            <Input
-                              value={extraStopRefs[i] || ""}
-                              onChange={e => {
-                                setExtraStopRefs(prev => {
-                                  const arr = [...prev];
-                                  arr[i] = e.target.value;
-                                  return arr;
-                                });
-                              }}
-                              placeholder="Referência da parada (opcional)"
-                              className="text-sm"
-                            />
-                          </div>
+                    {/* Extra stop cards */}
+                    {extraStops.length > 0 && (
+                      <div className="space-y-3">
+                        {(optimizeRoute ? orderedStops : extraStops).map((stop, i) => (
+                          <ExtraStopCard
+                            key={stop.id}
+                            stop={stop}
+                            index={i}
+                            total={extraStops.length}
+                            cities={cities}
+                            onUpdate={handleUpdateStop}
+                            onRemove={handleRemoveStop}
+                            onMoveUp={handleMoveStopUp}
+                            onMoveDown={handleMoveStopDown}
+                            onDragStart={setDragId}
+                            onDragOver={setDragOverId}
+                            onDragEnd={handleDragEnd}
+                            isDragging={dragId === stop.id}
+                            isDragOver={dragOverId === stop.id}
+                          />
                         ))}
                       </div>
                     )}
