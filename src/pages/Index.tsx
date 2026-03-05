@@ -417,7 +417,6 @@ export default function Index() {
       if (data?.error) { setError(data.error); return; }
 
       setResult({ ...data, estimated_time_min: routeDuration ? Math.round(routeDuration) : undefined });
-      setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
 
       await logSimulation({
         origin_city: getOriginCityName() || undefined,
