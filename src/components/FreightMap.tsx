@@ -27,14 +27,28 @@ const RED_ICON = new L.Icon({
   shadowSize: [41, 41],
 });
 
-const BLUE_ICON = new L.Icon({
-  iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png",
-  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
+function createNumberedIcon(number: number): L.DivIcon {
+  return L.divIcon({
+    html: `<div style="
+      background: hsl(217, 91%, 60%);
+      color: white;
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 13px;
+      border: 2px solid white;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    ">${number}</div>`,
+    className: "",
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+    popupAnchor: [0, -14],
+  });
+}
 
 // Animated vehicle marker icon
 const VEHICLE_ICON = L.divIcon({
@@ -104,22 +118,19 @@ export default function FreightMap({ originCoords, destCoords, extraStopCoords =
 
     const map = mapRef.current;
 
-    // Create the animated bright line (drawn progressively)
     animatedLineRef.current = L.polyline([], {
       color: "hsl(200, 100%, 50%)",
       weight: 5,
       opacity: 1,
     }).addTo(map);
 
-    // Create moving vehicle marker
     vehicleMarkerRef.current = L.marker(coords[0], { icon: VEHICLE_ICON, zIndexOffset: 1000 }).addTo(map);
 
-    // Sample ~200 points for smooth animation
     const totalPoints = coords.length;
     const step = Math.max(1, Math.floor(totalPoints / 200));
     let currentIndex = 0;
     const startTime = performance.now();
-    const duration = Math.min(4000, Math.max(2000, totalPoints * 5)); // 2-4s
+    const duration = Math.min(4000, Math.max(2000, totalPoints * 5));
 
     const animate = (now: number) => {
       const elapsed = now - startTime;
@@ -131,7 +142,6 @@ export default function FreightMap({ originCoords, destCoords, extraStopCoords =
         for (let i = currentIndex; i <= targetIndex; i += step) {
           newPoints.push(coords[i]);
         }
-        // Always include exact target
         newPoints.push(coords[targetIndex]);
 
         if (animatedLineRef.current) {
@@ -139,7 +149,6 @@ export default function FreightMap({ originCoords, destCoords, extraStopCoords =
           animatedLineRef.current.setLatLngs([...existing, ...newPoints]);
         }
 
-        // Move vehicle
         if (vehicleMarkerRef.current) {
           vehicleMarkerRef.current.setLatLng(coords[targetIndex]);
         }
@@ -150,13 +159,11 @@ export default function FreightMap({ originCoords, destCoords, extraStopCoords =
       if (progress < 1) {
         animationRef.current = requestAnimationFrame(animate);
       } else {
-        // Ensure final point
         if (animatedLineRef.current) {
           animatedLineRef.current.setLatLngs(coords);
         }
         if (vehicleMarkerRef.current) {
           vehicleMarkerRef.current.setLatLng(coords[coords.length - 1]);
-          // Fade out vehicle after a moment
           setTimeout(() => {
             if (vehicleMarkerRef.current && mapRef.current) {
               mapRef.current.removeLayer(vehicleMarkerRef.current);
@@ -186,8 +193,13 @@ export default function FreightMap({ originCoords, destCoords, extraStopCoords =
     if (destCoords) {
       markersRef.current.push(L.marker(destCoords, { icon: RED_ICON }).addTo(map).bindPopup("Destino"));
     }
+    // Numbered stop markers
     extraStopCoords.forEach((coords, i) => {
-      markersRef.current.push(L.marker(coords, { icon: BLUE_ICON }).addTo(map).bindPopup(`Parada ${i + 1}`));
+      markersRef.current.push(
+        L.marker(coords, { icon: createNumberedIcon(i + 1) })
+          .addTo(map)
+          .bindPopup(`Parada ${i + 1}`)
+      );
     });
 
     const allPoints = [originCoords, ...extraStopCoords, destCoords].filter(Boolean) as [number, number][];
@@ -208,7 +220,6 @@ export default function FreightMap({ originCoords, destCoords, extraStopCoords =
             const coords: [number, number][] = route.geometry.coordinates.map(
               (c: [number, number]) => [c[1], c[0]] as [number, number]
             );
-            // Draw ghost/base route (lighter)
             routeLineRef.current = L.polyline(coords, {
               color: "hsl(45, 80%, 75%)",
               weight: 4,
@@ -217,7 +228,6 @@ export default function FreightMap({ originCoords, destCoords, extraStopCoords =
             }).addTo(map);
             map.fitBounds(routeLineRef.current.getBounds(), { padding: [30, 30] });
 
-            // Animate the bright route on top
             animateRoute(coords);
 
             const distKm = route.distance / 1000;

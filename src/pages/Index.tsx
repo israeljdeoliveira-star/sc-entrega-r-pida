@@ -19,6 +19,7 @@ import ServicePhotosCarousel from "@/components/ServicePhotosCarousel";
 import ThemeToggle from "@/components/ThemeToggle";
 import AddressAutocomplete, { type AddressSelection } from "@/components/AddressAutocomplete";
 import CityAutocomplete, { type CitySelection } from "@/components/CityAutocomplete";
+import ExtraStopCard, { type ExtraStop, createExtraStop } from "@/components/ExtraStopCard";
 import logoFrete from "@/assets/logo-frete-garca.png";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -69,29 +70,55 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// Nearest-neighbor route optimization
-function optimizeStopOrder(origin: [number, number], stops: (AddressSelection | null)[], dest: [number, number]): number[] {
-  const validIndices = stops.map((s, i) => s ? i : -1).filter(i => i >= 0);
-  if (validIndices.length <= 1) return validIndices;
+// Nearest-neighbor + 2-opt route optimization
+function optimizeStopOrder(origin: [number, number], stops: ExtraStop[], dest: [number, number]): string[] {
+  const validStops = stops.filter(s => s.address);
+  if (validStops.length <= 1) return validStops.map(s => s.id);
 
+  // Build distance matrix
+  const points: [number, number][] = [origin, ...validStops.map(s => [s.address!.lat, s.address!.lng] as [number, number]), dest];
+  const n = points.length;
+  const dist = (i: number, j: number) => haversineDistance(points[i][0], points[i][1], points[j][0], points[j][1]);
+
+  // Nearest-neighbor to get initial order (indices 1..n-2 are stops)
+  const stopIndices = Array.from({ length: validStops.length }, (_, i) => i + 1);
   const ordered: number[] = [];
-  const remaining = new Set(validIndices);
-  let current = origin;
+  const remaining = new Set(stopIndices);
+  let current = 0; // origin
 
   while (remaining.size > 0) {
     let bestIdx = -1;
     let bestDist = Infinity;
     for (const idx of remaining) {
-      const s = stops[idx]!;
-      const d = haversineDistance(current[0], current[1], s.lat, s.lng);
+      const d = dist(current, idx);
       if (d < bestDist) { bestDist = d; bestIdx = idx; }
     }
     ordered.push(bestIdx);
-    const s = stops[bestIdx]!;
-    current = [s.lat, s.lng];
+    current = bestIdx;
     remaining.delete(bestIdx);
   }
-  return ordered;
+
+  // 2-opt improvement
+  let improved = true;
+  while (improved) {
+    improved = false;
+    for (let i = 0; i < ordered.length - 1; i++) {
+      for (let j = i + 1; j < ordered.length; j++) {
+        const prevI = i === 0 ? 0 : ordered[i - 1];
+        const nextJ = j === ordered.length - 1 ? n - 1 : ordered[j + 1];
+        const oldDist = dist(prevI, ordered[i]) + dist(ordered[j], nextJ);
+        const newDist = dist(prevI, ordered[j]) + dist(ordered[i], nextJ);
+        if (newDist < oldDist - 0.001) {
+          // Reverse segment i..j
+          const segment = ordered.slice(i, j + 1).reverse();
+          ordered.splice(i, j - i + 1, ...segment);
+          improved = true;
+        }
+      }
+    }
+  }
+
+  return ordered.map(idx => validStops[idx - 1].id);
 }
 
 export default function Index() {
@@ -127,10 +154,10 @@ export default function Index() {
   const [weight, setWeight] = useState("");
   const [category, setCategory] = useState("");
   const [motoReturn, setMotoReturn] = useState(false);
-  const [motoExtraStops, setMotoExtraStops] = useState(0);
-  const [extraStopAddresses, setExtraStopAddresses] = useState<(AddressSelection | null)[]>([]);
-  const [extraStopRefs, setExtraStopRefs] = useState<string[]>([]);
+  const [extraStops, setExtraStops] = useState<ExtraStop[]>([]);
   const [optimizeRoute, setOptimizeRoute] = useState(false);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   // Car state
   const [carOriginCityId, setCarOriginCityId] = useState("");
@@ -184,19 +211,54 @@ export default function Index() {
       .then(({ data }) => { if (data) setCities(data); });
   }, []);
 
-  // Sync extra stop arrays with count
-  useEffect(() => {
-    setExtraStopAddresses(prev => {
+  // Extra stop management
+  const handleAddStop = useCallback(() => {
+    setExtraStops(prev => [...prev, createExtraStop(prev.length)]);
+  }, []);
+
+  const handleRemoveStop = useCallback((id: string) => {
+    setExtraStops(prev => prev.filter(s => s.id !== id));
+  }, []);
+
+  const handleUpdateStop = useCallback((id: string, updates: Partial<ExtraStop>) => {
+    setExtraStops(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+  }, []);
+
+  const handleMoveStopUp = useCallback((id: string) => {
+    setExtraStops(prev => {
+      const idx = prev.findIndex(s => s.id === id);
+      if (idx <= 0) return prev;
       const arr = [...prev];
-      while (arr.length < motoExtraStops) arr.push(null);
-      return arr.slice(0, motoExtraStops);
+      [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]];
+      return arr;
     });
-    setExtraStopRefs(prev => {
+  }, []);
+
+  const handleMoveStopDown = useCallback((id: string) => {
+    setExtraStops(prev => {
+      const idx = prev.findIndex(s => s.id === id);
+      if (idx < 0 || idx >= prev.length - 1) return prev;
       const arr = [...prev];
-      while (arr.length < motoExtraStops) arr.push("");
-      return arr.slice(0, motoExtraStops);
+      [arr[idx], arr[idx + 1]] = [arr[idx + 1], arr[idx]];
+      return arr;
     });
-  }, [motoExtraStops]);
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    if (dragId && dragOverId && dragId !== dragOverId) {
+      setExtraStops(prev => {
+        const fromIdx = prev.findIndex(s => s.id === dragId);
+        const toIdx = prev.findIndex(s => s.id === dragOverId);
+        if (fromIdx < 0 || toIdx < 0) return prev;
+        const arr = [...prev];
+        const [moved] = arr.splice(fromIdx, 1);
+        arr.splice(toIdx, 0, moved);
+        return arr;
+      });
+    }
+    setDragId(null);
+    setDragOverId(null);
+  }, [dragId, dragOverId]);
 
   const getOriginCityName = () => {
     if (mode === "sc") return originCityName;
@@ -234,39 +296,36 @@ export default function Index() {
     setDestCoords(null);
   }, []);
 
-  const handleExtraStopSelect = useCallback((index: number, sel: AddressSelection) => {
-    setExtraStopAddresses(prev => {
-      const arr = [...prev];
-      arr[index] = sel;
-      return arr;
-    });
-  }, []);
-
   // Reset on mode change
   useEffect(() => { setResult(null); setError(""); setOriginCoords(null); setDestCoords(null); setRouteDistance(null); setRouteDuration(null); }, [mode]);
 
-  // Compute extra stop coords for map (with optional optimization)
-  const extraStopCoords = useMemo((): [number, number][] => {
-    const validStops = extraStopAddresses.filter(Boolean) as AddressSelection[];
-    if (validStops.length === 0) return [];
-    
-    if (optimizeRoute && originCoords && destCoords && validStops.length > 1) {
-      const order = optimizeStopOrder(originCoords, extraStopAddresses, destCoords);
-      return order.map(i => {
-        const s = extraStopAddresses[i]!;
-        return [s.lat, s.lng] as [number, number];
-      });
+  // Compute final stop order (optimized or manual)
+  const orderedStops = useMemo((): ExtraStop[] => {
+    const withAddress = extraStops.filter(s => s.address);
+    if (withAddress.length <= 1 || !optimizeRoute || !originCoords || !destCoords) {
+      return extraStops; // keep manual order
     }
-    
-    return validStops.map(s => [s.lat, s.lng] as [number, number]);
-  }, [extraStopAddresses, optimizeRoute, originCoords, destCoords]);
+    // Get optimized ID order
+    const optimizedIds = optimizeStopOrder(originCoords, extraStops, destCoords);
+    // Map back to full stops array preserving stops without address in place
+    const withoutAddress = extraStops.filter(s => !s.address);
+    const optimizedStops = optimizedIds.map(id => extraStops.find(s => s.id === id)!);
+    return [...optimizedStops, ...withoutAddress];
+  }, [extraStops, optimizeRoute, originCoords, destCoords]);
+
+  // Compute extra stop coords for map
+  const extraStopCoords = useMemo((): [number, number][] => {
+    return orderedStops
+      .filter(s => s.address)
+      .map(s => [s.address!.lat, s.address!.lng] as [number, number]);
+  }, [orderedStops]);
 
   // Determine which city each stop belongs to (for pricing)
   const getStopCityIds = useCallback((): { lat: number; lng: number }[] => {
-    const validStops = extraStopAddresses.filter(Boolean) as AddressSelection[];
-    if (validStops.length === 0) return [];
-    return validStops.map(stop => ({ lat: stop.lat, lng: stop.lng }));
-  }, [extraStopAddresses]);
+    return orderedStops
+      .filter(s => s.address)
+      .map(s => ({ lat: s.address!.lat, lng: s.address!.lng }));
+  }, [orderedStops]);
 
   // Stable ref for handleSimulate to avoid loop
   const handleSimulateRef = useRef<(distance: number) => Promise<void>>();
@@ -365,7 +424,7 @@ export default function Index() {
     return () => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); };
   }, [routeDistance]);
 
-  // Recalculate when motoReturn toggles (if route already exists)
+  // Recalculate when motoReturn or extraStops change (if route already exists)
   useEffect(() => {
     if (!routeDistance || routeDistance <= 0 || mode !== "sc") return;
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
@@ -373,7 +432,7 @@ export default function Index() {
       handleSimulateRef.current?.(routeDistance);
     }, 300);
     return () => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); };
-  }, [motoReturn]);
+  }, [motoReturn, extraStops, optimizeRoute]);
 
   // Volume alert for car
   useEffect(() => {
@@ -410,18 +469,19 @@ Segue a simulação do seu frete:
 📍 Entrega: ${destText}${dName ? `\n👤 Destinatário: ${dName}` : ""}${dRef ? `\n📌 Ref: ${dRef}` : ""}${destMapLink ? `\n🗺️ Mapa: ${destMapLink}` : ""}`;
 
     // Extra stops
-    if (mode === "sc" && motoExtraStops > 0) {
-      for (let i = 0; i < motoExtraStops; i++) {
-        const stopAddr = extraStopAddresses[i];
-        const stopRef = extraStopRefs[i] || "";
+    if (mode === "sc" && extraStops.length > 0) {
+      const stopsForMsg = optimizeRoute ? orderedStops : extraStops;
+      stopsForMsg.forEach((stop, i) => {
+        const stopAddr = stop.address;
+        const stopRef = stop.reference || "";
         if (stopAddr) {
-          const stopText = `${stopAddr.street}${stopAddr.houseNumber ? `, ${stopAddr.houseNumber}` : ""} - ${stopAddr.neighborhood || ""} - ${oCityName}`;
+          const stopText = `${stopAddr.street}${stopAddr.houseNumber ? `, ${stopAddr.houseNumber}` : ""} - ${stopAddr.neighborhood || ""} - ${stop.cityName || oCityName}`;
           const stopMapLink = buildGoogleMapsLink(stopAddr.lat, stopAddr.lng);
           msg += `\n\n📍 Parada ${i + 1}: ${stopText}${stopRef ? `\n📌 Ref: ${stopRef}` : ""}\n🗺️ Mapa: ${stopMapLink}`;
         } else {
           msg += `\n\n📍 Parada ${i + 1}: (endereço não informado)`;
         }
-      }
+      });
     }
 
     msg += `
@@ -605,51 +665,44 @@ Realizamos apenas o transporte.`;
 
                     <div className="space-y-2">
                       <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-background border">
-                        <span className="text-sm font-medium">📍 Paradas extras</span>
-                        <div className="flex items-center gap-2">
-                          <Button variant="outline" size="icon" className="h-8 w-8" disabled={motoExtraStops <= 0} onClick={() => setMotoExtraStops(v => Math.max(0, v - 1))}>-</Button>
-                          <span className="text-sm font-semibold w-6 text-center">{motoExtraStops}</span>
-                          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setMotoExtraStops(v => v + 1)}>
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        <span className="text-sm font-medium">📍 Paradas extras ({extraStops.length})</span>
+                        <Button variant="outline" size="sm" className="h-8 gap-1" onClick={handleAddStop}>
+                          <Plus className="h-3.5 w-3.5" /> Adicionar
+                        </Button>
                       </div>
-                      {motoExtraStops > 0 && <p className="text-xs text-muted-foreground pl-4">✅ {motoExtraStops} parada(s) extra(s) — R$ 7,00 por parada adicionada.</p>}
+                      {extraStops.length > 0 && <p className="text-xs text-muted-foreground pl-4">✅ {extraStops.length} parada(s) extra(s) — R$ 7,00 por parada adicionada.</p>}
                     </div>
 
                     {/* Optimize route toggle */}
-                    {motoExtraStops > 0 && (
-                      <ToggleQuestion label="Otimizar rota?" emoji="🗺️" checked={optimizeRoute} onChange={setOptimizeRoute} />
-                    )}
-                    {optimizeRoute && motoExtraStops > 0 && (
-                      <p className="text-xs text-muted-foreground pl-4">✅ As paradas serão reordenadas para a rota mais eficiente.</p>
+                    {extraStops.length > 1 && (
+                      <>
+                        <ToggleQuestion label="Otimizar rota?" emoji="🗺️" checked={optimizeRoute} onChange={setOptimizeRoute} />
+                        <p className="text-xs text-muted-foreground pl-4">
+                          {optimizeRoute ? "✅ Ordem automática otimizada (nearest-neighbor + 2-opt)" : "📋 Ordem manual"}
+                        </p>
+                      </>
                     )}
 
-                    {/* Extra stop address blocks */}
-                    {motoExtraStops > 0 && (
-                      <div className="space-y-4 pl-2 border-l-2 border-primary/30 ml-2">
-                        {Array.from({ length: motoExtraStops }).map((_, i) => (
-                          <div key={i} className="space-y-2">
-                            <div className="flex items-center gap-2 text-sm font-medium text-primary">
-                              <MapPin className="h-3.5 w-3.5" /> Parada {i + 1}
-                            </div>
-                            <AddressAutocomplete
-                              placeholder={`Endereço da parada ${i + 1}`}
-                              onSelect={(sel) => handleExtraStopSelect(i, sel)}
-                            />
-                            <Input
-                              value={extraStopRefs[i] || ""}
-                              onChange={e => {
-                                setExtraStopRefs(prev => {
-                                  const arr = [...prev];
-                                  arr[i] = e.target.value;
-                                  return arr;
-                                });
-                              }}
-                              placeholder="Referência da parada (opcional)"
-                              className="text-sm"
-                            />
-                          </div>
+                    {/* Extra stop cards */}
+                    {extraStops.length > 0 && (
+                      <div className="space-y-3">
+                        {(optimizeRoute ? orderedStops : extraStops).map((stop, i) => (
+                          <ExtraStopCard
+                            key={stop.id}
+                            stop={stop}
+                            index={i}
+                            total={extraStops.length}
+                            cities={cities}
+                            onUpdate={handleUpdateStop}
+                            onRemove={handleRemoveStop}
+                            onMoveUp={handleMoveStopUp}
+                            onMoveDown={handleMoveStopDown}
+                            onDragStart={setDragId}
+                            onDragOver={setDragOverId}
+                            onDragEnd={handleDragEnd}
+                            isDragging={dragId === stop.id}
+                            isDragOver={dragOverId === stop.id}
+                          />
                         ))}
                       </div>
                     )}
