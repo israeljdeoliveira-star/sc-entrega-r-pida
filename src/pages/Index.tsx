@@ -211,19 +211,54 @@ export default function Index() {
       .then(({ data }) => { if (data) setCities(data); });
   }, []);
 
-  // Sync extra stop arrays with count
-  useEffect(() => {
-    setExtraStopAddresses(prev => {
+  // Extra stop management
+  const handleAddStop = useCallback(() => {
+    setExtraStops(prev => [...prev, createExtraStop(prev.length)]);
+  }, []);
+
+  const handleRemoveStop = useCallback((id: string) => {
+    setExtraStops(prev => prev.filter(s => s.id !== id));
+  }, []);
+
+  const handleUpdateStop = useCallback((id: string, updates: Partial<ExtraStop>) => {
+    setExtraStops(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+  }, []);
+
+  const handleMoveStopUp = useCallback((id: string) => {
+    setExtraStops(prev => {
+      const idx = prev.findIndex(s => s.id === id);
+      if (idx <= 0) return prev;
       const arr = [...prev];
-      while (arr.length < motoExtraStops) arr.push(null);
-      return arr.slice(0, motoExtraStops);
+      [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]];
+      return arr;
     });
-    setExtraStopRefs(prev => {
+  }, []);
+
+  const handleMoveStopDown = useCallback((id: string) => {
+    setExtraStops(prev => {
+      const idx = prev.findIndex(s => s.id === id);
+      if (idx < 0 || idx >= prev.length - 1) return prev;
       const arr = [...prev];
-      while (arr.length < motoExtraStops) arr.push("");
-      return arr.slice(0, motoExtraStops);
+      [arr[idx], arr[idx + 1]] = [arr[idx + 1], arr[idx]];
+      return arr;
     });
-  }, [motoExtraStops]);
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    if (dragId && dragOverId && dragId !== dragOverId) {
+      setExtraStops(prev => {
+        const fromIdx = prev.findIndex(s => s.id === dragId);
+        const toIdx = prev.findIndex(s => s.id === dragOverId);
+        if (fromIdx < 0 || toIdx < 0) return prev;
+        const arr = [...prev];
+        const [moved] = arr.splice(fromIdx, 1);
+        arr.splice(toIdx, 0, moved);
+        return arr;
+      });
+    }
+    setDragId(null);
+    setDragOverId(null);
+  }, [dragId, dragOverId]);
 
   const getOriginCityName = () => {
     if (mode === "sc") return originCityName;
@@ -261,39 +296,36 @@ export default function Index() {
     setDestCoords(null);
   }, []);
 
-  const handleExtraStopSelect = useCallback((index: number, sel: AddressSelection) => {
-    setExtraStopAddresses(prev => {
-      const arr = [...prev];
-      arr[index] = sel;
-      return arr;
-    });
-  }, []);
-
   // Reset on mode change
   useEffect(() => { setResult(null); setError(""); setOriginCoords(null); setDestCoords(null); setRouteDistance(null); setRouteDuration(null); }, [mode]);
 
-  // Compute extra stop coords for map (with optional optimization)
-  const extraStopCoords = useMemo((): [number, number][] => {
-    const validStops = extraStopAddresses.filter(Boolean) as AddressSelection[];
-    if (validStops.length === 0) return [];
-    
-    if (optimizeRoute && originCoords && destCoords && validStops.length > 1) {
-      const order = optimizeStopOrder(originCoords, extraStopAddresses, destCoords);
-      return order.map(i => {
-        const s = extraStopAddresses[i]!;
-        return [s.lat, s.lng] as [number, number];
-      });
+  // Compute final stop order (optimized or manual)
+  const orderedStops = useMemo((): ExtraStop[] => {
+    const withAddress = extraStops.filter(s => s.address);
+    if (withAddress.length <= 1 || !optimizeRoute || !originCoords || !destCoords) {
+      return extraStops; // keep manual order
     }
-    
-    return validStops.map(s => [s.lat, s.lng] as [number, number]);
-  }, [extraStopAddresses, optimizeRoute, originCoords, destCoords]);
+    // Get optimized ID order
+    const optimizedIds = optimizeStopOrder(originCoords, extraStops, destCoords);
+    // Map back to full stops array preserving stops without address in place
+    const withoutAddress = extraStops.filter(s => !s.address);
+    const optimizedStops = optimizedIds.map(id => extraStops.find(s => s.id === id)!);
+    return [...optimizedStops, ...withoutAddress];
+  }, [extraStops, optimizeRoute, originCoords, destCoords]);
+
+  // Compute extra stop coords for map
+  const extraStopCoords = useMemo((): [number, number][] => {
+    return orderedStops
+      .filter(s => s.address)
+      .map(s => [s.address!.lat, s.address!.lng] as [number, number]);
+  }, [orderedStops]);
 
   // Determine which city each stop belongs to (for pricing)
   const getStopCityIds = useCallback((): { lat: number; lng: number }[] => {
-    const validStops = extraStopAddresses.filter(Boolean) as AddressSelection[];
-    if (validStops.length === 0) return [];
-    return validStops.map(stop => ({ lat: stop.lat, lng: stop.lng }));
-  }, [extraStopAddresses]);
+    return orderedStops
+      .filter(s => s.address)
+      .map(s => ({ lat: s.address!.lat, lng: s.address!.lng }));
+  }, [orderedStops]);
 
   // Stable ref for handleSimulate to avoid loop
   const handleSimulateRef = useRef<(distance: number) => Promise<void>>();
