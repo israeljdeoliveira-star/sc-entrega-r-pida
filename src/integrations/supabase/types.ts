@@ -226,6 +226,7 @@ export type Database = {
           price_per_km_moto: number
           taxa_retorno_carro: number
           updated_at: string
+          use_new_car_pricing: boolean
           valor_base_nacional: number
         }
         Insert: {
@@ -277,6 +278,7 @@ export type Database = {
           price_per_km_moto?: number
           taxa_retorno_carro?: number
           updated_at?: string
+          use_new_car_pricing?: boolean
           valor_base_nacional?: number
         }
         Update: {
@@ -328,6 +330,7 @@ export type Database = {
           price_per_km_moto?: number
           taxa_retorno_carro?: number
           updated_at?: string
+          use_new_car_pricing?: boolean
           valor_base_nacional?: number
         }
         Relationships: []
@@ -477,6 +480,130 @@ export type Database = {
           table_name?: string | null
         }
         Relationships: []
+      }
+      pricing_cost_inputs: {
+        Row: {
+          admin_expenses_monthly: number
+          corrective_maintenance_per_km: number
+          cost_per_lead: number
+          created_at: string
+          fuel_price_per_l: number
+          id: string
+          insurance_monthly: number
+          ipva_licensing_monthly: number
+          lead_conversion_pct: number
+          marketing_monthly: number
+          monthly_km: number
+          oil_maintenance_per_km: number
+          risk_reserve_per_km: number
+          safety_margin_pct: number
+          salary_monthly: number
+          systems_monthly: number
+          target_margin_pct: number
+          tire_cost_per_km: number
+          toll_per_km: number
+          updated_at: string
+          vehicle_occupation_pct: number
+          vehicle_profile_id: string
+        }
+        Insert: {
+          admin_expenses_monthly?: number
+          corrective_maintenance_per_km?: number
+          cost_per_lead?: number
+          created_at?: string
+          fuel_price_per_l?: number
+          id?: string
+          insurance_monthly?: number
+          ipva_licensing_monthly?: number
+          lead_conversion_pct?: number
+          marketing_monthly?: number
+          monthly_km?: number
+          oil_maintenance_per_km?: number
+          risk_reserve_per_km?: number
+          safety_margin_pct?: number
+          salary_monthly?: number
+          systems_monthly?: number
+          target_margin_pct?: number
+          tire_cost_per_km?: number
+          toll_per_km?: number
+          updated_at?: string
+          vehicle_occupation_pct?: number
+          vehicle_profile_id: string
+        }
+        Update: {
+          admin_expenses_monthly?: number
+          corrective_maintenance_per_km?: number
+          cost_per_lead?: number
+          created_at?: string
+          fuel_price_per_l?: number
+          id?: string
+          insurance_monthly?: number
+          ipva_licensing_monthly?: number
+          lead_conversion_pct?: number
+          marketing_monthly?: number
+          monthly_km?: number
+          oil_maintenance_per_km?: number
+          risk_reserve_per_km?: number
+          safety_margin_pct?: number
+          salary_monthly?: number
+          systems_monthly?: number
+          target_margin_pct?: number
+          tire_cost_per_km?: number
+          toll_per_km?: number
+          updated_at?: string
+          vehicle_occupation_pct?: number
+          vehicle_profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pricing_cost_inputs_vehicle_profile_id_fkey"
+            columns: ["vehicle_profile_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pricing_simulations: {
+        Row: {
+          breakeven_price: number
+          cost_per_km: number
+          created_at: string
+          id: string
+          input_id: string
+          output_data: Json
+          recommended_price: number
+          scenario: string
+        }
+        Insert: {
+          breakeven_price?: number
+          cost_per_km?: number
+          created_at?: string
+          id?: string
+          input_id: string
+          output_data?: Json
+          recommended_price?: number
+          scenario?: string
+        }
+        Update: {
+          breakeven_price?: number
+          cost_per_km?: number
+          created_at?: string
+          id?: string
+          input_id?: string
+          output_data?: Json
+          recommended_price?: number
+          scenario?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pricing_simulations_input_id_fkey"
+            columns: ["input_id"]
+            isOneToOne: false
+            referencedRelation: "pricing_cost_inputs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -673,6 +800,48 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      vehicle_profiles: {
+        Row: {
+          cargo_volume_m3: number
+          cargo_weight_kg: number
+          consumption_km_per_l: number
+          created_at: string
+          fuel_type: string
+          id: string
+          is_active: boolean
+          name: string
+          purchase_value: number
+          residual_value: number
+          useful_life_km: number
+        }
+        Insert: {
+          cargo_volume_m3?: number
+          cargo_weight_kg?: number
+          consumption_km_per_l?: number
+          created_at?: string
+          fuel_type?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          purchase_value?: number
+          residual_value?: number
+          useful_life_km?: number
+        }
+        Update: {
+          cargo_volume_m3?: number
+          cargo_weight_kg?: number
+          consumption_km_per_l?: number
+          created_at?: string
+          fuel_type?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          purchase_value?: number
+          residual_value?: number
+          useful_life_km?: number
         }
         Relationships: []
       }
