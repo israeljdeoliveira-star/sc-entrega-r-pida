@@ -320,6 +320,7 @@ export default function Index() {
             vehicle_type: "moto",
             distance_km: distance,
             moto_return: motoReturn,
+            return_distance_km: distance,
             extra_stops: extraStops,
           };
 

@@ -165,7 +165,26 @@ Deno.serve(async (req) => {
 
       // Moto extras (return fee, extra stops)
       let motoExtras = 0;
-      if (body.moto_return) motoExtras += num(settings.moto_return_fee);
+      let returnFeeApplied = 0;
+      if (body.moto_return) {
+        const returnMode = String(settings.moto_return_mode || "hybrid");
+        const baseFixed = num(settings.moto_return_fee);
+        const includedKm = num(settings.moto_return_included_km, 8);
+        const pricePerKmReturn = num(settings.moto_return_price_per_km, 2.5);
+        const minFee = num(settings.moto_return_min_fee, 10);
+        const returnDistKm = num(body.return_distance_km || distanciaEntrega);
+
+        if (returnMode === "fixed") {
+          returnFeeApplied = baseFixed;
+        } else if (returnMode === "per_km") {
+          returnFeeApplied = Math.max(minFee, returnDistKm * pricePerKmReturn);
+        } else {
+          // hybrid
+          const excedente = Math.max(0, returnDistKm - includedKm);
+          returnFeeApplied = Math.max(minFee, baseFixed + excedente * pricePerKmReturn);
+        }
+        motoExtras += returnFeeApplied;
+      }
 
       // Extra stops — each adds configured extra stop fee
       const extraStops = body.extra_stops || [];
@@ -182,6 +201,14 @@ Deno.serve(async (req) => {
         custoDeslocamento: Math.round(custoDeslocamento * 100) / 100,
         isColetaNaFilial, motoExtras, totalFinal,
         filialCidade: filial.cidade_filial,
+        returnFee: body.moto_return ? {
+          mode: String(settings.moto_return_mode || "hybrid"),
+          included_km: num(settings.moto_return_included_km, 8),
+          price_per_km: num(settings.moto_return_price_per_km, 2.5),
+          min_fee: num(settings.moto_return_min_fee, 10),
+          return_distance_km: num(body.return_distance_km || distanciaEntrega),
+          return_fee_applied: returnFeeApplied,
+        } : undefined,
       };
 
       await supabase.from("simulations_log").insert({
