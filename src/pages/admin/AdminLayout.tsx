@@ -34,6 +34,7 @@ const teamNav = [
 const otherNav = [
   { to: "/admin/external-codes", label: "Códigos Externos", icon: Code },
   { to: "/admin/service-photos", label: "Fotos Serviços", icon: ImageIcon },
+  { to: "/admin/data-export", label: "Exportar Dados", icon: DatabaseBackup },
 ];
 
 type NavItem = { to: string; label: string; icon: React.ElementType; exact?: boolean };
