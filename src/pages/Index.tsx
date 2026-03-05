@@ -966,6 +966,41 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
                       <div className="flex justify-between"><span className="text-muted-foreground">Tempo estimado</span><span className="font-medium">{result.estimated_time_min} min</span></div>
                     )}
                   </div>
+                  {/* Address summary */}
+                  <div className="border-t pt-3 space-y-1.5">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Resumo dos endereços</span>
+                    {(() => {
+                      const formatAddr = (addr: AddressSelection | null) =>
+                        addr ? `${addr.street}${addr.houseNumber ? `, ${addr.houseNumber}` : ""}` : "Não informada";
+                      const oAddr = mode === "sc" ? originAddress : carOriginAddress;
+                      const dAddr = mode === "sc" ? destAddress : carDestAddress;
+                      const stopsToShow = mode === "sc" ? (optimizeRoute ? orderedStops : extraStops) : [];
+                      const stopsWithAddr = stopsToShow.filter(s => s.address);
+                      let letterIdx = 0;
+                      return (
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="flex items-center justify-center h-5 w-5 rounded-full text-[10px] font-bold text-white shrink-0" style={{ background: "hsl(142, 70%, 45%)" }}>{String.fromCharCode(65 + letterIdx++)}</span>
+                            <span className="text-muted-foreground">Coleta:</span>
+                            <span className="font-medium truncate">{formatAddr(oAddr)}</span>
+                          </div>
+                          {stopsWithAddr.map((stop, i) => (
+                            <div key={stop.id} className="flex items-center gap-2 text-xs">
+                              <span className="flex items-center justify-center h-5 w-5 rounded-full text-[10px] font-bold text-white shrink-0" style={{ background: "hsl(217, 91%, 60%)" }}>{String.fromCharCode(65 + letterIdx++)}</span>
+                              <span className="text-muted-foreground">Parada {i + 1}:</span>
+                              <span className="font-medium truncate">{formatAddr(stop.address)}</span>
+                            </div>
+                          ))}
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="flex items-center justify-center h-5 w-5 rounded-full text-[10px] font-bold text-white shrink-0" style={{ background: "hsl(0, 70%, 50%)" }}>{String.fromCharCode(65 + letterIdx++)}</span>
+                            <span className="text-muted-foreground">Entrega:</span>
+                            <span className="font-medium truncate">{formatAddr(dAddr)}</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
                   <div className="border-t pt-4 flex flex-col items-center gap-1">
                     <span className="text-sm text-muted-foreground">Valor da entrega</span>
                     <span className="text-3xl font-extrabold text-primary">R$ {result.final_value.toFixed(2)}</span>

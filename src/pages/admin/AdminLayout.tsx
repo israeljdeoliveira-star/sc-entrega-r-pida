@@ -22,6 +22,7 @@ const freteNav = [
   { to: "/admin/simulations-log", label: "Log de Simulações", icon: Activity },
   { to: "/admin/rules", label: "Regras Dinâmicas", icon: Zap },
   { to: "/admin/pricing-log", label: "Log de Alterações", icon: FileText },
+  { to: "/admin/car-pricing", label: "Precificação Carro", icon: Calculator },
 ];
 
 const teamNav = [
