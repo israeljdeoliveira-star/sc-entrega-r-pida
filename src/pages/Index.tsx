@@ -345,7 +345,7 @@ export default function Index() {
       if (!carItemDetails.trim()) { setError("Descreva os itens a serem transportados."); isCalculatingRef.current = false; clearTimeout(safetyTimer); return; }
     }
 
-    setError(""); setResult(null); setLoading(true);
+    setError(""); setLoading(true);
 
     try {
       const isCar = mode === "national";
