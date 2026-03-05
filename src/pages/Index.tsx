@@ -278,9 +278,15 @@ export default function Index() {
     if (isCalculatingRef.current) return;
     isCalculatingRef.current = true;
 
+    // Safety timeout — never stay stuck more than 15s
+    const safetyTimer = setTimeout(() => {
+      isCalculatingRef.current = false;
+      setLoading(false);
+    }, 15000);
+
     if (mode === "national") {
-      if (!carItemDescription.trim()) { setError("Informe o que será transportado."); isCalculatingRef.current = false; return; }
-      if (!carItemDetails.trim()) { setError("Descreva os itens a serem transportados."); isCalculatingRef.current = false; return; }
+      if (!carItemDescription.trim()) { setError("Informe o que será transportado."); isCalculatingRef.current = false; clearTimeout(safetyTimer); return; }
+      if (!carItemDetails.trim()) { setError("Descreva os itens a serem transportados."); isCalculatingRef.current = false; clearTimeout(safetyTimer); return; }
     }
 
     setError(""); setResult(null); setLoading(true);
@@ -339,6 +345,7 @@ export default function Index() {
       setError(err.message || "Erro ao calcular frete.");
       toast({ title: "Erro", description: err.message, variant: "destructive" });
     } finally {
+      clearTimeout(safetyTimer);
       setLoading(false);
       isCalculatingRef.current = false;
     }
@@ -752,9 +759,19 @@ Realizamos apenas o transporte.`;
               {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
 
               {loading && (
-                <div className="flex items-center justify-center py-4 gap-2 text-sm text-muted-foreground">
-                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                  Calculando...
+                <div className="relative overflow-hidden rounded-xl border-2 border-primary/30 bg-primary/5 p-6">
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/10 to-transparent animate-[shimmer_1.5s_ease-in-out_infinite]" 
+                    style={{ backgroundSize: "200% 100%", animation: "shimmer 1.5s ease-in-out infinite" }} />
+                  <div className="flex flex-col items-center gap-3 relative z-10">
+                    <div className="relative">
+                      <div className="h-10 w-10 animate-spin rounded-full border-3 border-primary/30 border-t-primary" />
+                      <span className="absolute inset-0 flex items-center justify-center text-lg">🛵</span>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-semibold text-primary animate-pulse">Calculando sua rota...</p>
+                      <p className="text-xs text-muted-foreground mt-1">Buscando o melhor valor para você</p>
+                    </div>
+                  </div>
                 </div>
               )}
 
