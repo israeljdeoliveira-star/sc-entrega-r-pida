@@ -19,6 +19,7 @@ import ServicePhotosCarousel from "@/components/ServicePhotosCarousel";
 import ThemeToggle from "@/components/ThemeToggle";
 import AddressAutocomplete, { type AddressSelection } from "@/components/AddressAutocomplete";
 import CityAutocomplete, { type CitySelection } from "@/components/CityAutocomplete";
+import ExtraStopCard, { type ExtraStop, createExtraStop } from "@/components/ExtraStopCard";
 import logoFrete from "@/assets/logo-frete-garca.png";
 import type { Tables } from "@/integrations/supabase/types";
 
