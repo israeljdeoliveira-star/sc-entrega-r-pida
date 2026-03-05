@@ -469,18 +469,19 @@ Segue a simulação do seu frete:
 📍 Entrega: ${destText}${dName ? `\n👤 Destinatário: ${dName}` : ""}${dRef ? `\n📌 Ref: ${dRef}` : ""}${destMapLink ? `\n🗺️ Mapa: ${destMapLink}` : ""}`;
 
     // Extra stops
-    if (mode === "sc" && motoExtraStops > 0) {
-      for (let i = 0; i < motoExtraStops; i++) {
-        const stopAddr = extraStopAddresses[i];
-        const stopRef = extraStopRefs[i] || "";
+    if (mode === "sc" && extraStops.length > 0) {
+      const stopsForMsg = optimizeRoute ? orderedStops : extraStops;
+      stopsForMsg.forEach((stop, i) => {
+        const stopAddr = stop.address;
+        const stopRef = stop.reference || "";
         if (stopAddr) {
-          const stopText = `${stopAddr.street}${stopAddr.houseNumber ? `, ${stopAddr.houseNumber}` : ""} - ${stopAddr.neighborhood || ""} - ${oCityName}`;
+          const stopText = `${stopAddr.street}${stopAddr.houseNumber ? `, ${stopAddr.houseNumber}` : ""} - ${stopAddr.neighborhood || ""} - ${stop.cityName || oCityName}`;
           const stopMapLink = buildGoogleMapsLink(stopAddr.lat, stopAddr.lng);
           msg += `\n\n📍 Parada ${i + 1}: ${stopText}${stopRef ? `\n📌 Ref: ${stopRef}` : ""}\n🗺️ Mapa: ${stopMapLink}`;
         } else {
           msg += `\n\n📍 Parada ${i + 1}: (endereço não informado)`;
         }
-      }
+      });
     }
 
     msg += `
