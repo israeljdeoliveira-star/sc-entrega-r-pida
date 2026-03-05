@@ -441,6 +441,25 @@ export default function Index() {
     setVolumeAlert(hits.length >= 2);
   }, [carItemDescription, carItemDetails]);
 
+  // Clear car validation error immediately when fields become valid
+  useEffect(() => {
+    if (mode !== "national") return;
+    if (error && carItemDescription.trim() && carItemDetails.trim()) {
+      setError(null);
+    }
+  }, [carItemDescription, carItemDetails, mode, error]);
+
+  // Auto-recalculate when car-specific fields change (with debounce)
+  useEffect(() => {
+    if (mode !== "national" || !routeDistance || routeDistance <= 0) return;
+    if (!carItemDescription.trim() || !carItemDetails.trim()) return;
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      handleSimulateRef.current?.(routeDistance);
+    }, 400);
+    return () => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); };
+  }, [carItemDescription, carItemDetails, carNeedHelper, carNeedStairs, carIsApartment, carHasElevator, carNeedBubbleWrap, carHasFragile, carMultiTrip]);
+
   const buildWhatsAppUrl = () => {
     if (!result) return "#";
     const tipo = mode === "sc" ? "Moto" : "Carro";
