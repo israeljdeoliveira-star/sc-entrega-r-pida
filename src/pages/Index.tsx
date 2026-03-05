@@ -48,7 +48,18 @@ const CATEGORIES = [
   { value: "outros", label: "🎁 Outros" },
 ];
 
-const VOLUME_KEYWORDS = ["sofá", "sofa", "geladeira", "fogão", "fogao", "guarda-roupa", "guarda roupa", "armário", "armario", "cama", "mesa grande"];
+const VOLUME_KEYWORDS: { keyword: string; volume: number; weight: number }[] = [
+  { keyword: "sofá", volume: 1.5, weight: 40 }, { keyword: "sofa", volume: 1.5, weight: 40 },
+  { keyword: "geladeira", volume: 0.8, weight: 60 }, { keyword: "fogão", volume: 0.6, weight: 50 },
+  { keyword: "fogao", volume: 0.6, weight: 50 }, { keyword: "guarda-roupa", volume: 2.0, weight: 70 },
+  { keyword: "guarda roupa", volume: 2.0, weight: 70 }, { keyword: "armário", volume: 1.5, weight: 60 },
+  { keyword: "armario", volume: 1.5, weight: 60 }, { keyword: "cama", volume: 1.2, weight: 30 },
+  { keyword: "mesa grande", volume: 0.8, weight: 25 }, { keyword: "máquina de lavar", volume: 0.7, weight: 65 },
+  { keyword: "maquina de lavar", volume: 0.7, weight: 65 }, { keyword: "colchão", volume: 0.5, weight: 15 },
+  { keyword: "colchao", volume: 0.5, weight: 15 }, { keyword: "estante", volume: 1.0, weight: 35 },
+];
+const VEHICLE_CAPACITY_M3 = 2.5;
+const VEHICLE_CAPACITY_KG = 500;
 
 const WHATSAPP_FIXED = "5547988042341";
 
