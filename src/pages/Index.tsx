@@ -320,6 +320,35 @@ export default function Index() {
       .map(s => [s.address!.lat, s.address!.lng] as [number, number]);
   }, [orderedStops]);
 
+  // Compute unified point labels (A, B, C...) for map and cards
+  const pointLabels = useMemo((): string[] => {
+    if (mode !== "sc") return [];
+    let idx = 0;
+    const labels: string[] = [];
+    if (originCoords) labels.push(String.fromCharCode(65 + idx++));
+    const stopsToShow = optimizeRoute ? orderedStops : extraStops;
+    stopsToShow.filter(s => s.address).forEach(() => {
+      labels.push(String.fromCharCode(65 + idx++));
+    });
+    if (destCoords) labels.push(String.fromCharCode(65 + idx++));
+    return labels;
+  }, [mode, originCoords, destCoords, extraStops, orderedStops, optimizeRoute]);
+
+  // Compute stop card labels (including stops without address)
+  const stopCardLabels = useMemo((): string[] => {
+    if (mode !== "sc") return [];
+    const startIdx = originAddress ? 1 : 0;
+    const stopsToShow = optimizeRoute ? orderedStops : extraStops;
+    return stopsToShow.map((_, i) => String.fromCharCode(65 + startIdx + i));
+  }, [mode, originAddress, extraStops, orderedStops, optimizeRoute]);
+
+  const destLabel = useMemo((): string => {
+    if (mode !== "sc") return "";
+    const startIdx = originAddress ? 1 : 0;
+    const stopsToShow = optimizeRoute ? orderedStops : extraStops;
+    return String.fromCharCode(65 + startIdx + stopsToShow.length);
+  }, [mode, originAddress, extraStops, orderedStops, optimizeRoute]);
+
   // Determine which city each stop belongs to (for pricing)
   const getStopCityIds = useCallback((): { lat: number; lng: number }[] => {
     return orderedStops
