@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import {
   Building2, MapPin, LogOut, Truck, LayoutDashboard, Users, CarFront, Package, Zap, FileText, Code, ImageIcon, UsersRound,
-  Ruler, TrendingUp, Percent, Activity, Home, Calculator
+  Ruler, TrendingUp, Percent, Activity, Home, Calculator, DatabaseBackup
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
