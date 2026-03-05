@@ -27,6 +27,7 @@ import OrdersPage from "./pages/admin/OrdersPage";
 import ExternalCodesPage from "./pages/admin/ExternalCodesPage";
 import ServicePhotosPage from "./pages/admin/ServicePhotosPage";
 import CollaboratorsPage from "./pages/admin/CollaboratorsPage";
+import CarPricingPage from "./pages/admin/CarPricingPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
