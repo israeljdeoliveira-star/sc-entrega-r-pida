@@ -200,6 +200,10 @@ export type Database = {
           max_radius_km: number
           moto_extra_stop_fee: number
           moto_return_fee: number
+          moto_return_included_km: number
+          moto_return_min_fee: number
+          moto_return_mode: string
+          moto_return_price_per_km: number
           mult_car_night: number
           mult_car_peak: number
           mult_car_rain: number
@@ -247,6 +251,10 @@ export type Database = {
           max_radius_km?: number
           moto_extra_stop_fee?: number
           moto_return_fee?: number
+          moto_return_included_km?: number
+          moto_return_min_fee?: number
+          moto_return_mode?: string
+          moto_return_price_per_km?: number
           mult_car_night?: number
           mult_car_peak?: number
           mult_car_rain?: number
@@ -294,6 +302,10 @@ export type Database = {
           max_radius_km?: number
           moto_extra_stop_fee?: number
           moto_return_fee?: number
+          moto_return_included_km?: number
+          moto_return_min_fee?: number
+          moto_return_mode?: string
+          moto_return_price_per_km?: number
           mult_car_night?: number
           mult_car_peak?: number
           mult_car_rain?: number
