@@ -424,7 +424,7 @@ export default function Index() {
     return () => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); };
   }, [routeDistance]);
 
-  // Recalculate when motoReturn toggles (if route already exists)
+  // Recalculate when motoReturn or extraStops change (if route already exists)
   useEffect(() => {
     if (!routeDistance || routeDistance <= 0 || mode !== "sc") return;
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
@@ -432,7 +432,7 @@ export default function Index() {
       handleSimulateRef.current?.(routeDistance);
     }, 300);
     return () => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); };
-  }, [motoReturn]);
+  }, [motoReturn, extraStops, optimizeRoute]);
 
   // Volume alert for car
   useEffect(() => {
