@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import {
   Building2, MapPin, LogOut, Truck, LayoutDashboard, Users, CarFront, Package, Zap, FileText, Code, ImageIcon, UsersRound,
-  Ruler, TrendingUp, Percent, Activity, Home, Calculator
+  Ruler, TrendingUp, Percent, Activity, Home, Calculator, DatabaseBackup
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +34,7 @@ const teamNav = [
 const otherNav = [
   { to: "/admin/external-codes", label: "Códigos Externos", icon: Code },
   { to: "/admin/service-photos", label: "Fotos Serviços", icon: ImageIcon },
+  { to: "/admin/data-export", label: "Exportar Dados", icon: DatabaseBackup },
 ];
 
 type NavItem = { to: string; label: string; icon: React.ElementType; exact?: boolean };
