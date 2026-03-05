@@ -458,50 +458,25 @@ export default function Index() {
     const originMapLink = oAddr ? buildGoogleMapsLink(oAddr.lat, oAddr.lng) : "";
     const destMapLink = dAddr ? buildGoogleMapsLink(dAddr.lat, dAddr.lng) : "";
 
-    let msg = `🚛 FRETE GARÇA — SIMULAÇÃO
+    const isMotoboy = mode === "sc";
 
-Olá! 👋
+    let msg = isMotoboy
+      ? `Ol\u00e1! \uD83D\uDC4B
 
-Segue a simulação do seu frete:
+Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar uma entrega via motoboy.
 
-📍 Coleta: ${originText}${oRef ? `\n📌 Ref: ${oRef}` : ""}${originMapLink ? `\n🗺️ Mapa: ${originMapLink}` : ""}
+\uD83D\uDCCD Coleta: ${originText}${oRef ? `\n\uD83D\uDCCC Ref: ${oRef}` : ""}${originMapLink ? `\n\uD83D\uDDFA\uFE0F Mapa: ${originMapLink}` : ""}
 
-📍 Entrega: ${destText}${dName ? `\n👤 Destinatário: ${dName}` : ""}${dRef ? `\n📌 Ref: ${dRef}` : ""}${destMapLink ? `\n🗺️ Mapa: ${destMapLink}` : ""}`;
+\uD83D\uDCCD Entrega: ${destText}${dName ? `\n\uD83D\uDC64 Destinat\u00e1rio: ${dName}` : ""}${dRef ? `\n\uD83D\uDCCC Ref: ${dRef}` : ""}${destMapLink ? `\n\uD83D\uDDFA\uFE0F Mapa: ${destMapLink}` : ""}`
+      : `\uD83D\uDE9B FRETE GAR\u00C7A \u2014 SIMULA\u00C7\u00C3O
 
-    // Extra stops
-    if (mode === "sc" && extraStops.length > 0) {
-      const stopsForMsg = optimizeRoute ? orderedStops : extraStops;
-      stopsForMsg.forEach((stop, i) => {
-        const stopAddr = stop.address;
-        const stopRef = stop.reference || "";
-        if (stopAddr) {
-          const stopText = `${stopAddr.street}${stopAddr.houseNumber ? `, ${stopAddr.houseNumber}` : ""} - ${stopAddr.neighborhood || ""} - ${stop.cityName || oCityName}`;
-          const stopMapLink = buildGoogleMapsLink(stopAddr.lat, stopAddr.lng);
-          msg += `\n\n📍 Parada ${i + 1}: ${stopText}${stopRef ? `\n📌 Ref: ${stopRef}` : ""}\n🗺️ Mapa: ${stopMapLink}`;
-        } else {
-          msg += `\n\n📍 Parada ${i + 1}: (endereço não informado)`;
-        }
-      });
-    }
+Ol\u00e1! \uD83D\uDC4B
 
-    msg += `
+Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
 
-🚚 Tipo: ${tipo}
-📏 Distância: ${result.distance_km.toFixed(1)} km
-💰 Valor estimado: R$ ${result.final_value.toFixed(2)}
+\uD83D\uDCCD Coleta: ${originText}${oRef ? `\n\uD83D\uDCCC Ref: ${oRef}` : ""}${originMapLink ? `\n\uD83D\uDDFA\uFE0F Mapa: ${originMapLink}` : ""}
 
-⚠️ Esta é uma simulação automática.
-O valor pode sofrer alteração após conferência de detalhes.
-
-📦 Itens frágeis devem estar bem embalados.
-Realizamos apenas o transporte.`;
-
-    if (carMultiTrip && mode === "national") {
-      msg += "\n\nSe precisar de mais de uma viagem, aplicamos desconto conforme informado.";
-    }
-    if ((mode === "national" && carHasFragile) || mode === "sc") {
-      msg += "\n\n🔎 Esta é uma simulação automática. O valor pode sofrer ajustes após conferência dos itens.";
-    }
+\uD83D\uDCCD Entrega: ${destText}${dName ? `\n\uD83D\uDC64 Destinat\u00e1rio: ${dName}` : ""}${dRef ? `\n\uD83D\uDCCC Ref: ${dRef}` : ""}${destMapLink ? `\n\uD83D\uDDFA\uFE0F Mapa: ${destMapLink}` : ""}`;
 
     msg += "\n\nEstamos à disposição! 😊";
 
