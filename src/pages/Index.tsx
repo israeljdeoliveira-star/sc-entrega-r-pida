@@ -503,15 +503,17 @@ Realizamos apenas o transporte.`;
                     <div className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-4 w-4 text-primary" /> 📍 Local de Coleta</div>
                     <div className="space-y-1">
                       <Label className="text-sm">Cidade</Label>
-                      <CityAutocomplete
-                        placeholder="Digite a cidade de coleta..."
-                        onSelect={(sel) => {
-                          setOriginCityName(sel.cityName);
-                          setOriginAddress(null);
-                          setOriginCoords(null);
-                          setResult(null);
-                        }}
-                      />
+                      <Select value={originCityName} onValueChange={(v) => {
+                        setOriginCityName(v);
+                        setOriginAddress(null);
+                        setOriginCoords(null);
+                        setResult(null);
+                      }}>
+                        <SelectTrigger><SelectValue placeholder="Selecione a cidade" /></SelectTrigger>
+                        <SelectContent>
+                          {cities.map(c => <SelectItem key={c.id} value={c.name}>{c.name} - {c.state}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-1">
                       <Label className="text-sm">Rua + Número</Label>
@@ -530,15 +532,17 @@ Realizamos apenas o transporte.`;
                     <div className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-4 w-4 text-destructive" /> 📍 Destino</div>
                     <div className="space-y-1">
                       <Label className="text-sm">Cidade</Label>
-                      <CityAutocomplete
-                        placeholder="Digite a cidade de destino..."
-                        onSelect={(sel) => {
-                          setDestCityName(sel.cityName);
-                          setDestAddress(null);
-                          setDestCoords(null);
-                          setResult(null);
-                        }}
-                      />
+                      <Select value={destCityName} onValueChange={(v) => {
+                        setDestCityName(v);
+                        setDestAddress(null);
+                        setDestCoords(null);
+                        setResult(null);
+                      }}>
+                        <SelectTrigger><SelectValue placeholder="Selecione a cidade" /></SelectTrigger>
+                        <SelectContent>
+                          {cities.map(c => <SelectItem key={c.id} value={c.name}>{c.name} - {c.state}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-1">
                       <Label className="text-sm">Rua + Número</Label>
