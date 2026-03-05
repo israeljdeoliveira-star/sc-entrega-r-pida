@@ -320,6 +320,35 @@ export default function Index() {
       .map(s => [s.address!.lat, s.address!.lng] as [number, number]);
   }, [orderedStops]);
 
+  // Compute unified point labels (A, B, C...) for map and cards
+  const pointLabels = useMemo((): string[] => {
+    if (mode !== "sc") return [];
+    let idx = 0;
+    const labels: string[] = [];
+    if (originCoords) labels.push(String.fromCharCode(65 + idx++));
+    const stopsToShow = optimizeRoute ? orderedStops : extraStops;
+    stopsToShow.filter(s => s.address).forEach(() => {
+      labels.push(String.fromCharCode(65 + idx++));
+    });
+    if (destCoords) labels.push(String.fromCharCode(65 + idx++));
+    return labels;
+  }, [mode, originCoords, destCoords, extraStops, orderedStops, optimizeRoute]);
+
+  // Compute stop card labels (including stops without address)
+  const stopCardLabels = useMemo((): string[] => {
+    if (mode !== "sc") return [];
+    const startIdx = originAddress ? 1 : 0;
+    const stopsToShow = optimizeRoute ? orderedStops : extraStops;
+    return stopsToShow.map((_, i) => String.fromCharCode(65 + startIdx + i));
+  }, [mode, originAddress, extraStops, orderedStops, optimizeRoute]);
+
+  const destLabel = useMemo((): string => {
+    if (mode !== "sc") return "";
+    const startIdx = originAddress ? 1 : 0;
+    const stopsToShow = optimizeRoute ? orderedStops : extraStops;
+    return String.fromCharCode(65 + startIdx + stopsToShow.length);
+  }, [mode, originAddress, extraStops, orderedStops, optimizeRoute]);
+
   // Determine which city each stop belongs to (for pricing)
   const getStopCityIds = useCallback((): { lat: number; lng: number }[] => {
     return orderedStops
@@ -345,7 +374,7 @@ export default function Index() {
       if (!carItemDetails.trim()) { setError("Descreva os itens a serem transportados."); isCalculatingRef.current = false; clearTimeout(safetyTimer); return; }
     }
 
-    setError(""); setResult(null); setLoading(true);
+    setError(""); setLoading(true);
 
     try {
       const isCar = mode === "national";
@@ -708,27 +737,61 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
                       </>
                     )}
 
-                    {/* Extra stop cards */}
-                    {extraStops.length > 0 && (
-                      <div className="space-y-3">
-                        {(optimizeRoute ? orderedStops : extraStops).map((stop, i) => (
-                          <ExtraStopCard
-                            key={stop.id}
-                            stop={stop}
-                            index={i}
-                            total={extraStops.length}
-                            cities={cities}
-                            onUpdate={handleUpdateStop}
-                            onRemove={handleRemoveStop}
-                            onMoveUp={handleMoveStopUp}
-                            onMoveDown={handleMoveStopDown}
-                            onDragStart={setDragId}
-                            onDragOver={setDragOverId}
-                            onDragEnd={handleDragEnd}
-                            isDragging={dragId === stop.id}
-                            isDragOver={dragOverId === stop.id}
-                          />
-                        ))}
+                    {/* Unified route overview */}
+                    {(originAddress || extraStops.length > 0 || destAddress) && (
+                      <div className="space-y-2 mt-2">
+                        <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                          <Route className="h-3.5 w-3.5" />
+                          Roteiro {extraStops.length > 1 ? (optimizeRoute ? "• Ordem otimizada" : "• Ordem manual") : ""}
+                        </div>
+
+                        {/* Origin indicator */}
+                        {originAddress && (
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200/50 dark:border-green-800/50">
+                            <span className="flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold text-white" style={{ background: "hsl(142, 70%, 45%)" }}>A</span>
+                            <div className="flex-1 min-w-0">
+                              <span className="text-xs font-semibold text-green-700 dark:text-green-300">Coleta</span>
+                              <p className="text-xs text-muted-foreground truncate">{originAddress.street}{originAddress.houseNumber ? `, ${originAddress.houseNumber}` : ""} — {originCityName}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Stop cards with letters */}
+                        {extraStops.length > 0 && (
+                          <div className="space-y-2">
+                            {(optimizeRoute ? orderedStops : extraStops).map((stop, i) => (
+                              <ExtraStopCard
+                                key={stop.id}
+                                stop={stop}
+                                index={i}
+                                total={extraStops.length}
+                                cities={cities}
+                                onUpdate={handleUpdateStop}
+                                onRemove={handleRemoveStop}
+                                onMoveUp={handleMoveStopUp}
+                                onMoveDown={handleMoveStopDown}
+                                onDragStart={setDragId}
+                                onDragOver={setDragOverId}
+                                onDragEnd={handleDragEnd}
+                                isDragging={dragId === stop.id}
+                                isDragOver={dragOverId === stop.id}
+                                label={stopCardLabels[i]}
+                                pointType="stop"
+                              />
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Destination indicator */}
+                        {destAddress && (
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200/50 dark:border-red-800/50">
+                            <span className="flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold text-white" style={{ background: "hsl(0, 70%, 50%)" }}>{destLabel}</span>
+                            <div className="flex-1 min-w-0">
+                              <span className="text-xs font-semibold text-red-700 dark:text-red-300">Entrega</span>
+                              <p className="text-xs text-muted-foreground truncate">{destAddress.street}{destAddress.houseNumber ? `, ${destAddress.houseNumber}` : ""} — {destCityName}</p>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -867,6 +930,7 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
                     destCoords={destCoords}
                     extraStopCoords={extraStopCoords}
                     onRouteCalculated={handleRouteCalculated}
+                    pointLabels={pointLabels}
                   />
                 </Suspense>
               )}

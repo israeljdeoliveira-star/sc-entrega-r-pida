@@ -7,30 +7,13 @@ interface FreightMapProps {
   destCoords: [number, number] | null;
   extraStopCoords?: [number, number][];
   onRouteCalculated?: (distanceKm: number, durationMin: number, routeCoords: [number, number][]) => void;
+  pointLabels?: string[];
 }
 
-const GREEN_ICON = new L.Icon({
-  iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png",
-  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
-
-const RED_ICON = new L.Icon({
-  iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
-  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
-
-function createNumberedIcon(number: number): L.DivIcon {
+function createLetteredIcon(letter: string, bgColor: string = "hsl(217, 91%, 60%)"): L.DivIcon {
   return L.divIcon({
     html: `<div style="
-      background: hsl(217, 91%, 60%);
+      background: ${bgColor};
       color: white;
       border-radius: 50%;
       width: 28px;
@@ -42,7 +25,7 @@ function createNumberedIcon(number: number): L.DivIcon {
       font-size: 13px;
       border: 2px solid white;
       box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-    ">${number}</div>`,
+    ">${letter}</div>`,
     className: "",
     iconSize: [28, 28],
     iconAnchor: [14, 14],
@@ -58,7 +41,7 @@ const VEHICLE_ICON = L.divIcon({
   iconAnchor: [15, 15],
 });
 
-export default function FreightMap({ originCoords, destCoords, extraStopCoords = [], onRouteCalculated }: FreightMapProps) {
+export default function FreightMap({ originCoords, destCoords, extraStopCoords = [], onRouteCalculated, pointLabels = [] }: FreightMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<L.Marker[]>([]);
@@ -187,20 +170,37 @@ export default function FreightMap({ originCoords, destCoords, extraStopCoords =
     if (routeLineRef.current) { map.removeLayer(routeLineRef.current); routeLineRef.current = null; }
     clearAnimation();
 
+    let labelIdx = 0;
+
     if (originCoords) {
-      markersRef.current.push(L.marker(originCoords, { icon: GREEN_ICON }).addTo(map).bindPopup("Origem"));
-    }
-    if (destCoords) {
-      markersRef.current.push(L.marker(destCoords, { icon: RED_ICON }).addTo(map).bindPopup("Destino"));
-    }
-    // Numbered stop markers
-    extraStopCoords.forEach((coords, i) => {
+      const label = pointLabels[labelIdx] || "A";
+      labelIdx++;
       markersRef.current.push(
-        L.marker(coords, { icon: createNumberedIcon(i + 1) })
+        L.marker(originCoords, { icon: createLetteredIcon(label, "hsl(142, 70%, 45%)") })
           .addTo(map)
-          .bindPopup(`Parada ${i + 1}`)
+          .bindPopup(`${label} — Coleta`)
+      );
+    }
+
+    // Stop markers with letters
+    extraStopCoords.forEach((coords, i) => {
+      const label = pointLabels[labelIdx] || String.fromCharCode(66 + i);
+      labelIdx++;
+      markersRef.current.push(
+        L.marker(coords, { icon: createLetteredIcon(label) })
+          .addTo(map)
+          .bindPopup(`${label} — Parada ${i + 1}`)
       );
     });
+
+    if (destCoords) {
+      const label = pointLabels[labelIdx] || String.fromCharCode(65 + 1 + extraStopCoords.length);
+      markersRef.current.push(
+        L.marker(destCoords, { icon: createLetteredIcon(label, "hsl(0, 70%, 50%)") })
+          .addTo(map)
+          .bindPopup(`${label} — Entrega`)
+      );
+    }
 
     const allPoints = [originCoords, ...extraStopCoords, destCoords].filter(Boolean) as [number, number][];
 
@@ -241,7 +241,7 @@ export default function FreightMap({ originCoords, destCoords, extraStopCoords =
     } else if (destCoords) {
       map.setView(destCoords, 14);
     }
-  }, [originCoords, destCoords, extraStopCoords, mapReady]);
+  }, [originCoords, destCoords, extraStopCoords, mapReady, pointLabels]);
 
   return (
     <div

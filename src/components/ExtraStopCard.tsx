@@ -10,6 +10,8 @@ import type { Tables } from "@/integrations/supabase/types";
 
 type City = Tables<"cities">;
 
+export type RoutePointType = "origin" | "stop" | "destination";
+
 export interface ExtraStop {
   id: string;
   cityName: string;
@@ -44,6 +46,8 @@ interface ExtraStopCardProps {
   onDragEnd?: () => void;
   isDragging?: boolean;
   isDragOver?: boolean;
+  label?: string;
+  pointType?: RoutePointType;
 }
 
 export default function ExtraStopCard({
@@ -60,6 +64,8 @@ export default function ExtraStopCard({
   onDragEnd,
   isDragging,
   isDragOver,
+  label,
+  pointType = "stop",
 }: ExtraStopCardProps) {
   const handleCityChange = useCallback((cityName: string) => {
     onUpdate(stop.id, { cityName, cityState: "SC", address: null });
@@ -72,6 +78,8 @@ export default function ExtraStopCard({
   const handleRefChange = useCallback((ref: string) => {
     onUpdate(stop.id, { reference: ref });
   }, [stop.id, onUpdate]);
+
+  const isRemovable = pointType === "stop";
 
   return (
     <div
@@ -99,7 +107,11 @@ export default function ExtraStopCard({
         <div className="flex items-center gap-2">
           <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab active:cursor-grabbing" />
           <Badge variant="secondary" className="text-xs font-semibold">
-            <MapPin className="h-3 w-3 mr-1" /> Parada {index + 1}
+            {label ? (
+              <><span className="inline-flex items-center justify-center h-4 w-4 rounded-full text-[10px] font-bold text-white mr-1.5" style={{ background: "hsl(217, 91%, 60%)" }}>{label}</span> Parada</>
+            ) : (
+              <><MapPin className="h-3 w-3 mr-1" /> Parada {index + 1}</>
+            )}
           </Badge>
         </div>
         <div className="flex items-center gap-1">
@@ -123,15 +135,17 @@ export default function ExtraStopCard({
           >
             <ArrowDown className="h-3.5 w-3.5" />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 text-destructive hover:text-destructive"
-            onClick={() => onRemove(stop.id)}
-            title="Remover parada"
-          >
-            <X className="h-3.5 w-3.5" />
-          </Button>
+          {isRemovable && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-destructive hover:text-destructive"
+              onClick={() => onRemove(stop.id)}
+              title="Remover parada"
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
       </div>
 
