@@ -33,22 +33,18 @@ interface FreightResult {
 }
 
 const WEIGHT_OPTIONS = [
-  { value: "500g", label: "500g", example: "📦 Pacote de Café (~500g)" },
-  { value: "1kg", label: "1 kg", example: "📚 Livro Grande (~1kg)" },
-  { value: "3kg", label: "3 kg", example: "🍍 Abacaxi Médio (~3kg)" },
-  { value: "5kg", label: "5 kg", example: "🍉 Melancia Pequena (~5kg)" },
-  { value: "10kg", label: "10 kg", example: "🧴 Galão de Água (~10kg)" },
-  { value: "15kg", label: "15 kg", example: "🖥️ Monitor (~15kg)" },
-  { value: "20kg", label: "20 kg", example: "🧳 Mala Grande (~20kg)" },
+  { value: "1kg", label: "Até 1 kg", example: "📦 Pacote de café (500g)" },
+  { value: "3kg", label: "Até 3 kg", example: "🍍 Abacaxi médio" },
+  { value: "5kg", label: "Até 5 kg", example: "💻 Notebook" },
+  { value: "10kg", label: "Até 10 kg", example: "📦 Caixa pequena" },
 ];
 
 const CATEGORIES = [
   { value: "documentos", label: "📄 Documentos" },
-  { value: "eletronicos", label: "💻 Eletrônicos" },
+  { value: "eletronicos", label: "📱 Eletrônicos" },
   { value: "alimentacao", label: "🍔 Alimentação" },
-  { value: "presentes", label: "🎁 Presentes" },
-  { value: "malotes", label: "🧾 Malotes" },
-  { value: "outros", label: "📦 Outros" },
+  { value: "pacotes", label: "📦 Pacotes" },
+  { value: "outros", label: "🎁 Outros" },
 ];
 
 const VOLUME_KEYWORDS = ["sofá", "sofa", "geladeira", "fogão", "fogao", "guarda-roupa", "guarda roupa", "armário", "armario", "cama", "mesa grande"];
@@ -605,7 +601,7 @@ Realizamos apenas o transporte.`;
                           </Button>
                         </div>
                       </div>
-                      {motoExtraStops > 0 && <p className="text-xs text-muted-foreground pl-4">✅ {motoExtraStops} parada(s) extra(s) — valor base da cidade de cada parada será adicionado.</p>}
+                      {motoExtraStops > 0 && <p className="text-xs text-muted-foreground pl-4">✅ {motoExtraStops} parada(s) extra(s) — R$ 7,00 por parada adicionada.</p>}
                     </div>
 
                     {/* Optimize route toggle */}

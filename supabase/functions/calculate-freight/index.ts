@@ -143,7 +143,9 @@ Deno.serve(async (req) => {
           } catch {
             distanciaDeslocamento = haversine(num(filial.latitude_filial), num(filial.longitude_filial), originLat, originLng) * 1.3;
           }
-          custoDeslocamento = distanciaDeslocamento * num(filial.valor_km_deslocamento);
+          // Displacement = max(minimum, km * rate)
+          const minDeslocamento = num(filial.valor_minimo_filial, 15);
+          custoDeslocamento = Math.max(minDeslocamento, distanciaDeslocamento * num(filial.valor_km_deslocamento));
         }
       }
 
@@ -165,10 +167,10 @@ Deno.serve(async (req) => {
       let motoExtras = 0;
       if (body.moto_return) motoExtras += num(settings.moto_return_fee);
 
-      // Extra stops — each adds minimum from filial
+      // Extra stops — each adds configured extra stop fee
       const extraStops = body.extra_stops || [];
       if (Array.isArray(extraStops) && extraStops.length > 0) {
-        motoExtras += extraStops.length * num(filial.valor_minimo_filial, 15);
+        motoExtras += extraStops.length * num(settings.moto_extra_stop_fee, 7);
       }
 
       const totalFinal = Math.ceil(valorFinal + motoExtras);
