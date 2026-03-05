@@ -278,9 +278,12 @@ Deno.serve(async (req) => {
 
       const combinedMult = calcConditionMult("mult_car_");
       const isSameCity = origin_city_id === destination_city_id;
+      const useNewPricing = !!settings.use_new_car_pricing;
       const valorOperacional = isSameCity
         ? baseForCalc + additionalsTotal
-        : baseForCalc + (distanceKm * pricePerKm) * combinedMult + additionalsTotal;
+        : useNewPricing
+          ? Math.max(carMinValue, carMinValue + Math.max(0, distanceKm - 1) * pricePerKm * combinedMult) + additionalsTotal
+          : baseForCalc + (distanceKm * pricePerKm) * combinedMult + additionalsTotal;
 
       const calcMargin = () => {
         let m = num(settings.margin_base);
@@ -356,7 +359,11 @@ Deno.serve(async (req) => {
       };
 
       const combinedMult = calcConditionMult2();
-      const valorOperacional = baseValue + (clientDistance * pricePerKm) * combinedMult + additionalsTotal;
+      // New pricing: min R$98 for first km, then per-km for excess (controlled by use_new_car_pricing flag)
+      const useNewPricing = !!settings.use_new_car_pricing;
+      const valorOperacional = useNewPricing
+        ? Math.max(carMinValue, carMinValue + Math.max(0, clientDistance - 1) * pricePerKm * combinedMult) + additionalsTotal
+        : baseValue + (clientDistance * pricePerKm) * combinedMult + additionalsTotal;
 
       const calcMarginNational = () => {
         let m = num(settings.margin_base);

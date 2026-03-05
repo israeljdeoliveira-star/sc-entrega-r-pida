@@ -1,22 +1,22 @@
+## Plano: Correção UX + Resumo + Precificação Inteligente + Alerta Volume
 
+### Fase 1 — UX Simulação + Resumo ✅
+- Removido `scrollIntoView` automático no recálculo
+- Resultado mantido visível durante recálculo (loading overlay sem limpar `result`)
+- Adicionada seção "Resumo dos endereços" no card de resultado (Coleta/Paradas/Entrega com letras A/B/C)
 
-## Plano: Scroll automático até o resultado após calcular
+### Fase 2 — Admin Precificação Inteligente Carro ✅
+- Criadas tabelas: `vehicle_profiles`, `pricing_cost_inputs`, `pricing_simulations` (RLS admin-only)
+- Nova página `/admin/car-pricing` com formulários completos
+- Gráficos: pizza composição custo, barras cenários, linha sensibilidade combustível
+- Botão "Aplicar preço recomendado" → atualiza `freight_settings.price_per_km_car` + log
 
-### Problema
-Quando a simulação é concluída com sucesso, o card de resultado aparece abaixo do mapa e do formulário, fora da área visível. O usuário não percebe que o cálculo foi feito.
+### Fase 3 — Backend Cálculo Carro com Feature Flag ✅
+- Adicionada coluna `use_new_car_pricing` em `freight_settings` (default false)
+- Regra: `max(98, 98 + (km-1) * price_per_km)` quando flag ativa
+- Aplicada em SC carro e nacional carro
 
-### Solução
-Após `setResult(...)`, fazer `scrollIntoView` automático até o card de resultado.
-
-### Mudanças em `Index.tsx`
-
-1. **Criar um `ref`** para o container de resultado: `const resultRef = useRef<HTMLDivElement>(null)`
-2. **Adicionar `ref={resultRef}`** no `div` do resultado (linha ~804)
-3. **Após `setResult`** (linha ~329), adicionar um `setTimeout` com `resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })` para scroll suave até o resultado
-
-### Arquivo alterado
-
-| Arquivo | Alteração |
-|---------|-----------|
-| `Index.tsx` | Adicionar ref + scrollIntoView automático ao resultado |
-
+### Fase 4 — Alerta Inteligente de Volume ✅
+- Heurística de volume/peso por item (sofá 1.5m³/40kg, geladeira 0.8m³/60kg, etc.)
+- Cruzamento com capacidade do veículo (2.5m³ / 500kg)
+- Estimativa de número de viagens e impacto mostrado ao usuário

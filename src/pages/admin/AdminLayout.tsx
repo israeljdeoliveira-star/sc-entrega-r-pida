@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import {
   Building2, MapPin, LogOut, Truck, LayoutDashboard, Users, CarFront, Package, Zap, FileText, Code, ImageIcon, UsersRound,
-  Ruler, TrendingUp, Percent, Activity, Home
+  Ruler, TrendingUp, Percent, Activity, Home, Calculator
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +22,7 @@ const freteNav = [
   { to: "/admin/simulations-log", label: "Log de Simulações", icon: Activity },
   { to: "/admin/rules", label: "Regras Dinâmicas", icon: Zap },
   { to: "/admin/pricing-log", label: "Log de Alterações", icon: FileText },
+  { to: "/admin/car-pricing", label: "Precificação Carro", icon: Calculator },
 ];
 
 const teamNav = [

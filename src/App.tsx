@@ -27,6 +27,7 @@ import OrdersPage from "./pages/admin/OrdersPage";
 import ExternalCodesPage from "./pages/admin/ExternalCodesPage";
 import ServicePhotosPage from "./pages/admin/ServicePhotosPage";
 import CollaboratorsPage from "./pages/admin/CollaboratorsPage";
+import CarPricingPage from "./pages/admin/CarPricingPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -67,6 +68,7 @@ const App = () => (
                 <Route path="external-codes" element={<ExternalCodesPage />} />
                 <Route path="service-photos" element={<ServicePhotosPage />} />
                 <Route path="collaborators" element={<CollaboratorsPage />} />
+                <Route path="car-pricing" element={<CarPricingPage />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

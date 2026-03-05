@@ -48,7 +48,18 @@ const CATEGORIES = [
   { value: "outros", label: "🎁 Outros" },
 ];
 
-const VOLUME_KEYWORDS = ["sofá", "sofa", "geladeira", "fogão", "fogao", "guarda-roupa", "guarda roupa", "armário", "armario", "cama", "mesa grande"];
+const VOLUME_KEYWORDS: { keyword: string; volume: number; weight: number }[] = [
+  { keyword: "sofá", volume: 1.5, weight: 40 }, { keyword: "sofa", volume: 1.5, weight: 40 },
+  { keyword: "geladeira", volume: 0.8, weight: 60 }, { keyword: "fogão", volume: 0.6, weight: 50 },
+  { keyword: "fogao", volume: 0.6, weight: 50 }, { keyword: "guarda-roupa", volume: 2.0, weight: 70 },
+  { keyword: "guarda roupa", volume: 2.0, weight: 70 }, { keyword: "armário", volume: 1.5, weight: 60 },
+  { keyword: "armario", volume: 1.5, weight: 60 }, { keyword: "cama", volume: 1.2, weight: 30 },
+  { keyword: "mesa grande", volume: 0.8, weight: 25 }, { keyword: "máquina de lavar", volume: 0.7, weight: 65 },
+  { keyword: "maquina de lavar", volume: 0.7, weight: 65 }, { keyword: "colchão", volume: 0.5, weight: 15 },
+  { keyword: "colchao", volume: 0.5, weight: 15 }, { keyword: "estante", volume: 1.0, weight: 35 },
+];
+const VEHICLE_CAPACITY_M3 = 2.5;
+const VEHICLE_CAPACITY_KG = 500;
 
 const WHATSAPP_FIXED = "5547988042341";
 
@@ -417,7 +428,6 @@ export default function Index() {
       if (data?.error) { setError(data.error); return; }
 
       setResult({ ...data, estimated_time_min: routeDuration ? Math.round(routeDuration) : undefined });
-      setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
 
       await logSimulation({
         origin_city: getOriginCityName() || undefined,
@@ -463,12 +473,28 @@ export default function Index() {
     return () => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); };
   }, [motoReturn, extraStops, optimizeRoute]);
 
-  // Volume alert for car
-  useEffect(() => {
+  // Volume alert for car — smart estimation
+  const volumeEstimate = useMemo(() => {
     const text = (carItemDescription + " " + carItemDetails).toLowerCase();
-    const hits = VOLUME_KEYWORDS.filter(kw => text.includes(kw));
-    setVolumeAlert(hits.length >= 2);
+    let totalVol = 0;
+    let totalWeight = 0;
+    const matched: string[] = [];
+    for (const item of VOLUME_KEYWORDS) {
+      if (text.includes(item.keyword)) {
+        totalVol += item.volume;
+        totalWeight += item.weight;
+        matched.push(item.keyword);
+      }
+    }
+    const tripsVol = Math.ceil(totalVol / VEHICLE_CAPACITY_M3);
+    const tripsWeight = Math.ceil(totalWeight / VEHICLE_CAPACITY_KG);
+    const trips = Math.max(tripsVol, tripsWeight, 1);
+    return { totalVol, totalWeight, trips, exceeded: trips > 1 || totalVol > VEHICLE_CAPACITY_M3 * 0.9, matched };
   }, [carItemDescription, carItemDetails]);
+
+  useEffect(() => {
+    setVolumeAlert(volumeEstimate.exceeded);
+  }, [volumeEstimate.exceeded]);
 
   // Clear car validation error immediately when fields become valid
   useEffect(() => {
@@ -892,8 +918,9 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
                     {volumeAlert && (
                       <Alert className="border-orange-400/50 bg-orange-50 dark:bg-orange-950/30">
                         <Truck className="h-4 w-4 text-orange-600" />
-                        <AlertDescription className="text-sm text-orange-800 dark:text-orange-200">
-                          🚛 Observação: Pelo volume informado, pode ser necessário realizar duas viagens.
+                        <AlertDescription className="text-sm text-orange-800 dark:text-orange-200 space-y-1">
+                          <p>🚛 Pelo volume estimado ({volumeEstimate.totalVol.toFixed(1)} m³ / {volumeEstimate.totalWeight} kg), pode ser necessário <strong>{volumeEstimate.trips} viagem(ns)</strong>.</p>
+                          {volumeEstimate.trips > 1 && <p className="text-xs">💡 Ative "mais de uma viagem" abaixo para desconto automático.</p>}
                         </AlertDescription>
                       </Alert>
                     )}
@@ -967,6 +994,41 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
                       <div className="flex justify-between"><span className="text-muted-foreground">Tempo estimado</span><span className="font-medium">{result.estimated_time_min} min</span></div>
                     )}
                   </div>
+                  {/* Address summary */}
+                  <div className="border-t pt-3 space-y-1.5">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Resumo dos endereços</span>
+                    {(() => {
+                      const formatAddr = (addr: AddressSelection | null) =>
+                        addr ? `${addr.street}${addr.houseNumber ? `, ${addr.houseNumber}` : ""}` : "Não informada";
+                      const oAddr = mode === "sc" ? originAddress : carOriginAddress;
+                      const dAddr = mode === "sc" ? destAddress : carDestAddress;
+                      const stopsToShow = mode === "sc" ? (optimizeRoute ? orderedStops : extraStops) : [];
+                      const stopsWithAddr = stopsToShow.filter(s => s.address);
+                      let letterIdx = 0;
+                      return (
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="flex items-center justify-center h-5 w-5 rounded-full text-[10px] font-bold text-white shrink-0" style={{ background: "hsl(142, 70%, 45%)" }}>{String.fromCharCode(65 + letterIdx++)}</span>
+                            <span className="text-muted-foreground">Coleta:</span>
+                            <span className="font-medium truncate">{formatAddr(oAddr)}</span>
+                          </div>
+                          {stopsWithAddr.map((stop, i) => (
+                            <div key={stop.id} className="flex items-center gap-2 text-xs">
+                              <span className="flex items-center justify-center h-5 w-5 rounded-full text-[10px] font-bold text-white shrink-0" style={{ background: "hsl(217, 91%, 60%)" }}>{String.fromCharCode(65 + letterIdx++)}</span>
+                              <span className="text-muted-foreground">Parada {i + 1}:</span>
+                              <span className="font-medium truncate">{formatAddr(stop.address)}</span>
+                            </div>
+                          ))}
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="flex items-center justify-center h-5 w-5 rounded-full text-[10px] font-bold text-white shrink-0" style={{ background: "hsl(0, 70%, 50%)" }}>{String.fromCharCode(65 + letterIdx++)}</span>
+                            <span className="text-muted-foreground">Entrega:</span>
+                            <span className="font-medium truncate">{formatAddr(dAddr)}</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
                   <div className="border-t pt-4 flex flex-col items-center gap-1">
                     <span className="text-sm text-muted-foreground">Valor da entrega</span>
                     <span className="text-3xl font-extrabold text-primary">R$ {result.final_value.toFixed(2)}</span>
