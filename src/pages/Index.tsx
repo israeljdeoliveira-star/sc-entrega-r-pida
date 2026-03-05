@@ -930,6 +930,7 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
                     destCoords={destCoords}
                     extraStopCoords={extraStopCoords}
                     onRouteCalculated={handleRouteCalculated}
+                    pointLabels={pointLabels}
                   />
                 </Suspense>
               )}
