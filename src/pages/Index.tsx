@@ -473,12 +473,28 @@ export default function Index() {
     return () => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); };
   }, [motoReturn, extraStops, optimizeRoute]);
 
-  // Volume alert for car
-  useEffect(() => {
+  // Volume alert for car — smart estimation
+  const volumeEstimate = useMemo(() => {
     const text = (carItemDescription + " " + carItemDetails).toLowerCase();
-    const hits = VOLUME_KEYWORDS.filter(kw => text.includes(kw));
-    setVolumeAlert(hits.length >= 2);
+    let totalVol = 0;
+    let totalWeight = 0;
+    const matched: string[] = [];
+    for (const item of VOLUME_KEYWORDS) {
+      if (text.includes(item.keyword)) {
+        totalVol += item.volume;
+        totalWeight += item.weight;
+        matched.push(item.keyword);
+      }
+    }
+    const tripsVol = Math.ceil(totalVol / VEHICLE_CAPACITY_M3);
+    const tripsWeight = Math.ceil(totalWeight / VEHICLE_CAPACITY_KG);
+    const trips = Math.max(tripsVol, tripsWeight, 1);
+    return { totalVol, totalWeight, trips, exceeded: trips > 1 || totalVol > VEHICLE_CAPACITY_M3 * 0.9, matched };
   }, [carItemDescription, carItemDetails]);
+
+  useEffect(() => {
+    setVolumeAlert(volumeEstimate.exceeded);
+  }, [volumeEstimate.exceeded]);
 
   // Clear car validation error immediately when fields become valid
   useEffect(() => {
