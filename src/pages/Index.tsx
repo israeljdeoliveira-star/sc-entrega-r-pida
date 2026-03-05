@@ -918,8 +918,9 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
                     {volumeAlert && (
                       <Alert className="border-orange-400/50 bg-orange-50 dark:bg-orange-950/30">
                         <Truck className="h-4 w-4 text-orange-600" />
-                        <AlertDescription className="text-sm text-orange-800 dark:text-orange-200">
-                          🚛 Observação: Pelo volume informado, pode ser necessário realizar duas viagens.
+                        <AlertDescription className="text-sm text-orange-800 dark:text-orange-200 space-y-1">
+                          <p>🚛 Pelo volume estimado ({volumeEstimate.totalVol.toFixed(1)} m³ / {volumeEstimate.totalWeight} kg), pode ser necessário <strong>{volumeEstimate.trips} viagem(ns)</strong>.</p>
+                          {volumeEstimate.trips > 1 && <p className="text-xs">💡 Ative "mais de uma viagem" abaixo para desconto automático.</p>}
                         </AlertDescription>
                       </Alert>
                     )}
