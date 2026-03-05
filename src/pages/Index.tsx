@@ -320,6 +320,7 @@ export default function Index() {
             vehicle_type: "moto",
             distance_km: distance,
             moto_return: motoReturn,
+            return_distance_km: distance,
             extra_stops: extraStops,
           };
 
@@ -363,6 +364,16 @@ export default function Index() {
     }, 300);
     return () => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); };
   }, [routeDistance]);
+
+  // Recalculate when motoReturn toggles (if route already exists)
+  useEffect(() => {
+    if (!routeDistance || routeDistance <= 0 || mode !== "sc") return;
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      handleSimulateRef.current?.(routeDistance);
+    }, 300);
+    return () => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); };
+  }, [motoReturn]);
 
   // Volume alert for car
   useEffect(() => {

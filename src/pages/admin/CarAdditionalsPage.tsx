@@ -3,15 +3,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Car, Users, ArrowDown, Building2, Package, AlertTriangle, Percent, RotateCcw, MapPin } from "lucide-react";
+import { Car, Users, ArrowDown, Building2, Package, AlertTriangle, Percent, RotateCcw, MapPin, Ruler, DollarSign } from "lucide-react";
 
 interface Field {
   key: string;
   label: string;
   description: string;
   icon: React.ElementType;
-  section: "car" | "moto" | "discount";
+  section: "car" | "moto" | "moto_return" | "discount";
+  type?: "select";
+  options?: { value: string; label: string }[];
 }
 
 const fields: Field[] = [
@@ -21,8 +24,14 @@ const fields: Field[] = [
   { key: "car_fee_no_elevator", label: "Taxa Apartamento sem Elevador (R$)", description: "Valor adicional para entregas em apartamentos sem elevador.", icon: Building2, section: "car" },
   { key: "car_fee_bubble_wrap", label: "Taxa Embalagem Bolha (R$)", description: "Valor adicional quando o cliente solicita embalagem bolha.", icon: Package, section: "car" },
   { key: "car_fee_fragile", label: "Taxa Item Frágil (R$)", description: "Valor adicional quando há itens frágeis no transporte.", icon: AlertTriangle, section: "car" },
-  { key: "moto_return_fee", label: "Taxa Retorno Moto (R$)", description: "Valor cobrado quando o motoboy precisa retornar ao ponto de coleta.", icon: RotateCcw, section: "moto" },
   { key: "moto_extra_stop_fee", label: "Taxa Parada Extra Moto (R$)", description: "Valor adicional por cada parada extra no trajeto do motoboy.", icon: MapPin, section: "moto" },
+  // Moto return section
+  { key: "moto_return_mode", label: "Modo da Taxa de Retorno", description: "fixed = só taxa fixa • per_km = só por km • hybrid = taxa fixa + excedente por km.", icon: RotateCcw, section: "moto_return", type: "select", options: [{ value: "fixed", label: "Fixo" }, { value: "per_km", label: "Por KM" }, { value: "hybrid", label: "Híbrido (recomendado)" }] },
+  { key: "moto_return_fee", label: "Taxa Base Fixa de Retorno (R$)", description: "Valor fixo cobrado sempre que o motoboy precisa retornar. No modo híbrido, é a base antes do excedente.", icon: DollarSign, section: "moto_return" },
+  { key: "moto_return_included_km", label: "KM Incluídos no Retorno", description: "Franquia de km já incluídos na taxa base. Excedente é cobrado à parte (modo híbrido).", icon: Ruler, section: "moto_return" },
+  { key: "moto_return_price_per_km", label: "Valor por KM Excedente (R$)", description: "Valor cobrado por km que ultrapassar a franquia incluída (modos per_km e hybrid).", icon: Ruler, section: "moto_return" },
+  { key: "moto_return_min_fee", label: "Valor Mínimo do Retorno (R$)", description: "Piso mínimo da taxa de retorno, independente do cálculo.", icon: DollarSign, section: "moto_return" },
+  // Discount
   { key: "multi_trip_discount_pct", label: "Desconto Múltiplas Viagens (%)", description: "Percentual de desconto aplicado automaticamente quando o cliente precisa de mais de uma viagem.", icon: Percent, section: "discount" },
 ];
 
@@ -33,15 +42,17 @@ export default function CarAdditionalsPage() {
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
+  const allKeys = fields.map(f => f.key);
+
   useEffect(() => {
     supabase.from("freight_settings")
-      .select("id, car_min_value, car_fee_helper, car_fee_stairs, car_fee_no_elevator, car_fee_bubble_wrap, car_fee_fragile, moto_return_fee, moto_extra_stop_fee, multi_trip_discount_pct")
+      .select(`id, ${allKeys.join(", ")}`)
       .limit(1).single()
       .then(({ data }) => {
         if (data) {
-          setSettingsId(data.id);
+          setSettingsId((data as any).id);
           const mapped: Record<string, string> = {};
-          Object.entries(data).forEach(([k, v]) => { if (k !== "id") mapped[k] = String(v ?? ""); });
+          Object.entries(data as any).forEach(([k, v]) => { if (k !== "id") mapped[k] = String(v ?? ""); });
           setSettings(mapped);
           setOriginal(mapped);
         }
@@ -53,9 +64,15 @@ export default function CarAdditionalsPage() {
   const handleSave = async () => {
     if (!settingsId) return;
     setSaving(true);
-    const keys = fields.map(f => f.key);
     const updatePayload: Record<string, any> = { updated_at: new Date().toISOString() };
-    keys.forEach(k => { updatePayload[k] = parseFloat(settings[k] || "0"); });
+    allKeys.forEach(k => {
+      const field = fields.find(f => f.key === k);
+      if (field?.type === "select") {
+        updatePayload[k] = settings[k] || "hybrid";
+      } else {
+        updatePayload[k] = parseFloat(settings[k] || "0");
+      }
+    });
 
     const { error } = await supabase.from("freight_settings").update(updatePayload).eq("id", settingsId);
     if (error) {
@@ -65,7 +82,7 @@ export default function CarAdditionalsPage() {
     }
 
     const changes: { field_name: string; old_value: string; new_value: string }[] = [];
-    keys.forEach(k => {
+    allKeys.forEach(k => {
       if (settings[k] !== original[k]) changes.push({ field_name: k, old_value: original[k] || "", new_value: settings[k] || "" });
     });
     if (changes.length > 0) {
@@ -97,7 +114,18 @@ export default function CarAdditionalsPage() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Input type="number" step="0.01" value={settings[field.key] || ""} onChange={e => set(field.key, e.target.value)} />
+                {field.type === "select" ? (
+                  <Select value={settings[field.key] || "hybrid"} onValueChange={v => set(field.key, v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {field.options?.map(o => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input type="number" step="0.01" value={settings[field.key] || ""} onChange={e => set(field.key, e.target.value)} />
+                )}
                 <p className="text-sm text-muted-foreground leading-relaxed">{field.description}</p>
               </CardContent>
             </Card>
@@ -115,6 +143,7 @@ export default function CarAdditionalsPage() {
       </div>
       {renderSection("Adicionais do Carro", "car", "🚗")}
       {renderSection("Adicionais do Motoboy", "moto", "🛵")}
+      {renderSection("Taxa de Retorno Moto", "moto_return", "🔁")}
       {renderSection("Descontos", "discount", "💸")}
       <Button onClick={handleSave} disabled={saving} className="w-full max-w-md">
         {saving ? "Salvando..." : "Salvar Configurações"}
