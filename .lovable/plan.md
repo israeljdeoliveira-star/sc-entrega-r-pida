@@ -1,40 +1,22 @@
+## Plano: Correção UX + Resumo + Precificação Inteligente + Alerta Volume
 
+### Fase 1 — UX Simulação + Resumo ✅
+- Removido `scrollIntoView` automático no recálculo
+- Resultado mantido visível durante recálculo (loading overlay sem limpar `result`)
+- Adicionada seção "Resumo dos endereços" no card de resultado (Coleta/Paradas/Entrega com letras A/B/C)
 
-## Plano: Adicionar seção "SQL das Tabelas" na página de Exportar Dados
+### Fase 2 — Admin Precificação Inteligente Carro ✅
+- Criadas tabelas: `vehicle_profiles`, `pricing_cost_inputs`, `pricing_simulations` (RLS admin-only)
+- Nova página `/admin/car-pricing` com formulários completos
+- Gráficos: pizza composição custo, barras cenários, linha sensibilidade combustível
+- Botão "Aplicar preço recomendado" → atualiza `freight_settings.price_per_km_car` + log
 
-### Objetivo
-Adicionar uma área com sidebar estilo o screenshot de referência (Database, Users, Storage, etc.) onde o admin pode ver o SQL de criação (CREATE TABLE) de cada tabela do sistema e copiar para migração.
+### Fase 3 — Backend Cálculo Carro com Feature Flag ✅
+- Adicionada coluna `use_new_car_pricing` em `freight_settings` (default false)
+- Regra: `max(98, 98 + (km-1) * price_per_km)` quando flag ativa
+- Aplicada em SC carro e nacional carro
 
-### Abordagem
-Como não temos acesso dinâmico ao `information_schema` via client-side (RLS bloqueia), vou gerar o SQL estático baseado no schema conhecido (types.ts + contexto das tabelas). Cada tabela terá seu CREATE TABLE completo com colunas, tipos, defaults e constraints.
-
-### Mudanças em `src/pages/admin/DataExportPage.tsx`
-
-**1. Layout com sidebar lateral (estilo referência)**
-- Dividir a página em duas seções com Tabs ou layout side-by-side:
-  - **Aba 1**: "Exportar CSV" (conteúdo atual)
-  - **Aba 2**: "SQL Schema" com sidebar à esquerda listando categorias (Database, Storage, Edge Functions, etc.) e área principal mostrando o SQL
-
-**2. Sidebar de navegação SQL**
-- Items: Database (todas as tabelas), Users (profiles, user_roles), Storage (service-photos bucket info), Edge Functions (calculate-freight), Secrets (lista de nomes), SQL Editor (campo livre)
-- Visual dark como na referência, com ícones similares
-
-**3. Área de SQL por tabela**
-- Ao clicar em "Database", listar todas as tabelas com accordion
-- Cada tabela mostra seu `CREATE TABLE` statement completo
-- Botão "Copiar SQL" por tabela e "Copiar Tudo"
-- SQL gerado estaticamente a partir do schema conhecido
-- Incluir também CREATE TYPE para `app_role`, funções (`has_role`, `handle_new_user`, etc.), triggers e RLS policies
-
-**4. Outras seções**
-- **Users**: mostra SQL de profiles + user_roles
-- **Storage**: mostra config do bucket `service-photos`
-- **Edge Functions**: lista `calculate-freight` com nota de que o código está no repositório
-- **Secrets**: lista nomes dos secrets configurados (sem valores)
-- **Logs**: informação de que logs são acessíveis via Lovable Cloud
-
-### Arquivo alterado
-| Arquivo | Escopo |
-|---------|--------|
-| `src/pages/admin/DataExportPage.tsx` | Adicionar Tabs, sidebar SQL, schema estático copiável |
-
+### Fase 4 — Alerta Inteligente de Volume ✅
+- Heurística de volume/peso por item (sofá 1.5m³/40kg, geladeira 0.8m³/60kg, etc.)
+- Cruzamento com capacidade do veículo (2.5m³ / 500kg)
+- Estimativa de número de viagens e impacto mostrado ao usuário
