@@ -46,9 +46,26 @@ export default function ExternalScripts() {
 
         // Custom tracking code
         if (data.custom_tracking_code) {
-          const s = document.createElement("script");
-          s.innerHTML = data.custom_tracking_code;
-          document.head.appendChild(s);
+          const code = data.custom_tracking_code.trim();
+          // If code contains <script> tags, extract inner content
+          const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi;
+          let match;
+          let hasScriptTags = false;
+          while ((match = scriptRegex.exec(code)) !== null) {
+            hasScriptTags = true;
+            const inner = match[1].trim();
+            if (inner) {
+              const s = document.createElement("script");
+              s.innerHTML = inner;
+              document.head.appendChild(s);
+            }
+          }
+          // If no script tags found, treat as raw JS
+          if (!hasScriptTags) {
+            const s = document.createElement("script");
+            s.innerHTML = code;
+            document.head.appendChild(s);
+          }
         }
       });
   }, []);
