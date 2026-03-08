@@ -32,6 +32,7 @@ type NavItem = {
 const geralNav: NavItem[] = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true, desc: "Visão geral do sistema e métricas" },
   { to: "/admin/orders", label: "Pedidos", icon: Package, desc: "Gerenciar pedidos recebidos" },
+  { to: "/admin/dre", label: "DRE Mensal", icon: BarChart3, desc: "Demonstrativo de resultados e lucro" },
 ];
 
 const precificacaoNav: NavItem[] = [
