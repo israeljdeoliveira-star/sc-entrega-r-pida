@@ -518,7 +518,7 @@ export default function Index() {
       setLoading(false);
       isCalculatingRef.current = false;
     }
-  }, [mode, carItemDescription, carItemDetails, carNeedHelper, carNeedStairs, carIsApartment, carHasElevator, carNeedBubbleWrap, carHasFragile, carMultiTrip, carOriginCityId, carDestCityId, originCityName, destCityName, motoReturn, routeDuration, toast, getStopCityIds]);
+  }, [mode, carItemDescription, carItemDetails, carNeedHelper, carNeedStairs, carIsApartment, carHasElevator, carNeedBubbleWrap, carHasFragile, carMultiTrip, carOriginCityId, carDestCityId, originCityName, destCityName, motoReturn, routeDuration, toast, getStopCityIds, validateSimulation]);
 
   // Keep ref always pointing to latest handleSimulate
   useEffect(() => {
