@@ -978,6 +978,7 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
               {(originCoords || destCoords) && (
                 <Suspense fallback={<div className="w-full h-[300px] rounded-xl bg-muted animate-pulse" />}>
                   <FreightMap
+                    key={`${originCoords?.join(",") || "o"}-${destCoords?.join(",") || "d"}`}
                     originCoords={originCoords}
                     destCoords={destCoords}
                     extraStopCoords={extraStopCoords}
