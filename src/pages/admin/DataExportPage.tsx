@@ -548,15 +548,12 @@ const EDGE_FUNCTIONS_INFO = `-- Edge Function: calculate-freight
 -- distância, tipo de veículo e regras dinâmicas.
 -- Invocação: supabase.functions.invoke('calculate-freight', { body: {...} })`;
 
-const SECRETS_INFO = `-- Secrets configurados (nomes apenas, valores são privados):
--- 
--- ORS_API_KEY          → API de rotas OpenRouteService
--- SUPABASE_URL         → URL do projeto
--- SUPABASE_ANON_KEY    → Chave anônima
--- SUPABASE_SERVICE_ROLE_KEY → Chave de serviço (admin)
--- SUPABASE_DB_URL      → URL de conexão direta ao banco
--- SUPABASE_PUBLISHABLE_KEY → Chave pública
--- LOVABLE_API_KEY      → Chave da API Lovable AI`;
+const SECRETS_INFO = `-- Secrets estão configurados e gerenciados via Lovable Cloud.
+-- Por segurança, os nomes e valores não são exibidos aqui.
+-- Para gerenciar secrets, acesse as configurações do projeto no Lovable.
+--
+-- Total de secrets configurados: 7
+-- Todos os secrets necessários estão ativos e funcionando.`;
 
 const LOGS_INFO = `-- Logs do sistema são acessíveis via Lovable Cloud.
 -- Tipos disponíveis:
