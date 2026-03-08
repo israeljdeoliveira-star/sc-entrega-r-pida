@@ -383,11 +383,62 @@ export default function Index() {
       .map(s => ({ lat: s.address!.lat, lng: s.address!.lng }));
   }, [orderedStops]);
 
+  // Validation — scroll to missing field
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+
+  const validateAndScrollTo = useCallback((elementId: string) => {
+    const el = document.getElementById(elementId);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("ring-2", "ring-destructive");
+      setTimeout(() => el.classList.remove("ring-2", "ring-destructive"), 2500);
+    }
+  }, []);
+
+  const validateSimulation = useCallback((): boolean => {
+    const errors: string[] = [];
+
+    if (mode === "sc") {
+      if (!originCityName) { errors.push("Selecione a cidade de coleta"); }
+      if (!originAddress) { errors.push("Informe a rua de coleta com número"); }
+      if (!destCityName) { errors.push("Selecione a cidade de destino"); }
+      if (!destAddress) { errors.push("Informe a rua de destino com número"); }
+    } else {
+      if (!carOriginCityName) { errors.push("Informe a cidade de origem"); }
+      if (!carOriginAddress) { errors.push("Informe a rua de origem com número"); }
+      if (!carDestCityName) { errors.push("Informe a cidade de destino"); }
+      if (!carDestAddress) { errors.push("Informe a rua de destino com número"); }
+      if (!carItemDescription.trim()) { errors.push("Informe o que será transportado"); }
+      if (!carItemDetails.trim()) { errors.push("Descreva os itens a serem transportados"); }
+    }
+
+    setValidationErrors(errors);
+    if (errors.length > 0) {
+      toast({ title: "Campos pendentes", description: errors[0], variant: "destructive" });
+      // Scroll to first problematic field
+      if (mode === "sc") {
+        if (!originCityName || !originAddress) validateAndScrollTo("moto-origin-section");
+        else if (!destCityName || !destAddress) validateAndScrollTo("moto-dest-section");
+      } else {
+        if (!carOriginCityName || !carOriginAddress) validateAndScrollTo("car-origin-section");
+        else if (!carDestCityName || !carDestAddress) validateAndScrollTo("car-dest-section");
+        else validateAndScrollTo("car-items-section");
+      }
+      return false;
+    }
+
+    setValidationErrors([]);
+    return true;
+  }, [mode, originCityName, originAddress, destCityName, destAddress, carOriginCityName, carOriginAddress, carDestCityName, carDestAddress, carItemDescription, carItemDetails, toast, validateAndScrollTo]);
+
   // Stable ref for handleSimulate to avoid loop
   const handleSimulateRef = useRef<(distance: number) => Promise<void>>();
 
   const handleSimulate = useCallback(async (distance: number) => {
     if (isCalculatingRef.current) return;
+
+    if (!validateSimulation()) return;
+
     isCalculatingRef.current = true;
 
     // Safety timeout — never stay stuck more than 15s
