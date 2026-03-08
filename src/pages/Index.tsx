@@ -1042,10 +1042,13 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
                     </p>
                   </div>
 
-                  <Button asChild className="w-full gap-2 py-6 text-base font-semibold text-white" style={{ backgroundColor: "hsl(142, 70%, 45%)" }} size="lg">
-                    <a href={buildWhatsAppUrl()} target="_blank" rel="noopener noreferrer">
-                      <MessageCircle className="h-5 w-5" /> Solicitar pelo WhatsApp
-                    </a>
+                  <Button className="w-full gap-2 py-6 text-base font-semibold text-white" style={{ backgroundColor: "hsl(142, 70%, 45%)" }} size="lg"
+                    onClick={() => {
+                      pushGA4Event("click_whatsapp", { source: "result" });
+                      trackEvent("click_whatsapp", { source: "result" });
+                      window.open(buildWhatsAppUrl(), "_blank", "noopener,noreferrer");
+                    }}>
+                    <MessageCircle className="h-5 w-5" /> Solicitar pelo WhatsApp
                   </Button>
                 </div>
               )}
