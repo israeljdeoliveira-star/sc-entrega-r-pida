@@ -123,8 +123,7 @@ async function fetchNominatim(
     countrycodes: "br",
   });
   const res = await fetch(
-    `https://nominatim.openstreetmap.org/search?${params}`,
-    { headers: { "User-Agent": "FreteGarca/1.0" } }
+    `https://nominatim.openstreetmap.org/search?${params}`
   );
   return res.json();
 }
