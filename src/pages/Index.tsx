@@ -688,7 +688,7 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
                     </div>
                     <div className="space-y-1">
                       <Label className="text-sm">Rua + Número</Label>
-                      <AddressAutocomplete placeholder="Ex: Rua Brasil, 123" cityName={originCityName} disabled={!originCityName} onSelect={handleOriginSelect} />
+                      <AddressAutocomplete placeholder="Ex: Rua Brasil, 123" cityName={originCityName} disabled={!originCityName} onSelect={handleOriginSelect} onClear={handleOriginClear} />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-sm text-muted-foreground">Ponto de referência</Label>
