@@ -707,6 +707,7 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
                         setDestCityName(v);
                         setDestAddress(null);
                         setDestCoords(null);
+                        setRouteDistance(null); setRouteDuration(null);
                         setResult(null);
                       }}>
                         <SelectTrigger><SelectValue placeholder="Selecione a cidade" /></SelectTrigger>
