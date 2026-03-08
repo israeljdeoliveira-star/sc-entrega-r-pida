@@ -2,45 +2,81 @@ import { Link, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import {
-  Building2, MapPin, LogOut, Truck, LayoutDashboard, Users, CarFront, Package, Zap, FileText, Code, ImageIcon, UsersRound,
+  Building2, LogOut, Truck, LayoutDashboard, Users, CarFront, Package, Zap, FileText, Code, ImageIcon, UsersRound,
   Ruler, TrendingUp, Percent, Activity, Home, Calculator, DatabaseBackup
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+  useSidebar,
+} from "@/components/ui/sidebar";
+import { NavLink } from "@/components/NavLink";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-const mainNav = [
-  { to: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { to: "/admin/orders", label: "Pedidos", icon: Package },
+type NavItem = {
+  to: string;
+  label: string;
+  icon: React.ElementType;
+  exact?: boolean;
+  desc: string;
+};
+
+const geralNav: NavItem[] = [
+  { to: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true, desc: "Visão geral do sistema e métricas" },
+  { to: "/admin/orders", label: "Pedidos", icon: Package, desc: "Gerenciar pedidos recebidos" },
 ];
 
-const freteNav = [
-  { to: "/admin/filial", label: "Filial", icon: Home },
-  { to: "/admin/cities", label: "Cidades Atendidas", icon: Building2 },
-  { to: "/admin/km-tiers", label: "Tabela de KM", icon: Ruler },
-  { to: "/admin/multipliers", label: "Multiplicadores", icon: TrendingUp },
-  { to: "/admin/smart-margin", label: "Margem Inteligente", icon: Percent },
-  { to: "/admin/car-additionals", label: "Adicionais Carro", icon: CarFront },
-  { to: "/admin/simulations-log", label: "Log de Simulações", icon: Activity },
-  { to: "/admin/rules", label: "Regras Dinâmicas", icon: Zap },
-  { to: "/admin/pricing-log", label: "Log de Alterações", icon: FileText },
-  { to: "/admin/car-pricing", label: "Precificação Carro", icon: Calculator },
+const precificacaoNav: NavItem[] = [
+  { to: "/admin/filial", label: "Filial", icon: Home, desc: "Define o ponto base — impacta cálculo de deslocamento" },
+  { to: "/admin/km-tiers", label: "Tabela de KM", icon: Ruler, desc: "Faixas de preço por distância (moto)" },
+  { to: "/admin/multipliers", label: "Multiplicadores", icon: TrendingUp, desc: "Ajustes por condições: chuva, noturno, etc." },
+  { to: "/admin/smart-margin", label: "Margem Inteligente", icon: Percent, desc: "Lucro automático por nível de risco" },
+  { to: "/admin/car-pricing", label: "Precificação Carro", icon: Calculator, desc: "Custo/km baseado em perfil veicular" },
+  { to: "/admin/car-additionals", label: "Adicionais Carro", icon: CarFront, desc: "Taxas extras: ajudante, escada, etc." },
 ];
 
-const teamNav = [
-  { to: "/admin/drivers", label: "Motoristas", icon: CarFront },
-  { to: "/admin/clients", label: "Clientes", icon: Users },
-  { to: "/admin/collaborators", label: "Colaboradores", icon: UsersRound },
+const coberturaNav: NavItem[] = [
+  { to: "/admin/cities", label: "Cidades Atendidas", icon: Building2, desc: "Restringe seleção de cidade no simulador moto" },
 ];
 
-const otherNav = [
-  { to: "/admin/external-codes", label: "Códigos Externos", icon: Code },
-  { to: "/admin/service-photos", label: "Fotos Serviços", icon: ImageIcon },
-  { to: "/admin/data-export", label: "Exportar Dados", icon: DatabaseBackup },
+const regrasNav: NavItem[] = [
+  { to: "/admin/rules", label: "Regras Dinâmicas", icon: Zap, desc: "Regras automáticas de preço por condições" },
+  { to: "/admin/simulations-log", label: "Log de Simulações", icon: Activity, desc: "Histórico de todas as simulações feitas" },
+  { to: "/admin/pricing-log", label: "Log de Alterações", icon: FileText, desc: "Registro de mudanças nas configurações" },
 ];
 
-type NavItem = { to: string; label: string; icon: React.ElementType; exact?: boolean };
+const equipeNav: NavItem[] = [
+  { to: "/admin/drivers", label: "Motoristas", icon: CarFront, desc: "Cadastro e gestão de motoristas" },
+  { to: "/admin/clients", label: "Clientes", icon: Users, desc: "Base de clientes" },
+  { to: "/admin/collaborators", label: "Colaboradores", icon: UsersRound, desc: "Equipe interna" },
+];
 
-export default function AdminLayout() {
-  const { signOut } = useAuth();
+const outrosNav: NavItem[] = [
+  { to: "/admin/external-codes", label: "Códigos Externos", icon: Code, desc: "Scripts e tags de terceiros" },
+  { to: "/admin/service-photos", label: "Fotos Serviços", icon: ImageIcon, desc: "Carrossel de fotos na landing page" },
+  { to: "/admin/data-export", label: "Exportar Dados", icon: DatabaseBackup, desc: "Download de dados do sistema" },
+];
+
+const groups = [
+  { title: "Geral", items: geralNav },
+  { title: "Precificação Frete", items: precificacaoNav },
+  { title: "Cobertura", items: coberturaNav },
+  { title: "Regras & Logs", items: regrasNav },
+  { title: "Equipe", items: equipeNav },
+  { title: "Outros", items: outrosNav },
+];
+
+function AdminSidebar() {
+  const { state } = useSidebar();
+  const collapsed = state === "collapsed";
   const location = useLocation();
 
   const isActive = (item: NavItem) => {
@@ -48,53 +84,86 @@ export default function AdminLayout() {
     return location.pathname.startsWith(item.to);
   };
 
-  const NavGroup = ({ title, items }: { title: string; items: NavItem[] }) => (
-    <div className="space-y-1">
-      <span className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">{title}</span>
-      <div className="flex flex-wrap gap-1.5">
-        {items.map((item) => (
-          <Link key={item.to} to={item.to}>
-            <Button
-              variant={isActive(item) ? "default" : "outline"}
-              size="sm"
-              className={cn("gap-1 text-xs")}
-            >
-              <item.icon className="h-3.5 w-3.5" />
-              {item.label}
-            </Button>
-          </Link>
-        ))}
-      </div>
-    </div>
+  return (
+    <Sidebar collapsible="icon">
+      <SidebarContent className="pt-2">
+        <TooltipProvider delayDuration={300}>
+          {groups.map((group) => {
+            const hasActive = group.items.some(isActive);
+            return (
+              <SidebarGroup key={group.title}>
+                <SidebarGroupLabel className="text-xs uppercase tracking-wider">{group.title}</SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {group.items.map((item) => (
+                      <SidebarMenuItem key={item.to}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <SidebarMenuButton asChild>
+                              <NavLink
+                                to={item.to}
+                                end={item.exact}
+                                className="hover:bg-muted/50"
+                                activeClassName="bg-primary/10 text-primary font-medium"
+                              >
+                                <item.icon className="mr-2 h-4 w-4 shrink-0" />
+                                {!collapsed && (
+                                  <div className="flex flex-col min-w-0">
+                                    <span className="text-sm truncate">{item.label}</span>
+                                    <span className="text-[10px] text-muted-foreground truncate leading-tight">{item.desc}</span>
+                                  </div>
+                                )}
+                              </NavLink>
+                            </SidebarMenuButton>
+                          </TooltipTrigger>
+                          {collapsed && (
+                            <TooltipContent side="right" className="max-w-[200px]">
+                              <p className="font-medium text-sm">{item.label}</p>
+                              <p className="text-xs text-muted-foreground">{item.desc}</p>
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            );
+          })}
+        </TooltipProvider>
+      </SidebarContent>
+    </Sidebar>
   );
+}
+
+export default function AdminLayout() {
+  const { signOut } = useAuth();
 
   return (
-    <div className="min-h-screen bg-muted/30">
-      <header className="border-b bg-card">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-2">
-            <Truck className="h-6 w-6 text-primary" />
-            <h1 className="text-lg font-bold">Frete Garça - Admin</h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link to="/">
-              <Button variant="ghost" size="sm">Simulador</Button>
-            </Link>
-            <Button variant="ghost" size="sm" onClick={signOut}>
-              <LogOut className="mr-1 h-4 w-4" /> Sair
-            </Button>
-          </div>
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full bg-muted/30">
+        <AdminSidebar />
+        <div className="flex-1 flex flex-col min-w-0">
+          <header className="h-14 border-b bg-card flex items-center justify-between px-4 shrink-0">
+            <div className="flex items-center gap-2">
+              <SidebarTrigger className="mr-1" />
+              <Truck className="h-5 w-5 text-primary" />
+              <h1 className="text-base font-bold hidden sm:block">Frete Garça — Admin</h1>
+            </div>
+            <div className="flex items-center gap-2">
+              <Link to="/">
+                <Button variant="ghost" size="sm">Simulador</Button>
+              </Link>
+              <Button variant="ghost" size="sm" onClick={signOut}>
+                <LogOut className="mr-1 h-4 w-4" /> Sair
+              </Button>
+            </div>
+          </header>
+          <main className="flex-1 p-4 sm:p-6 overflow-auto">
+            <Outlet />
+          </main>
         </div>
-      </header>
-      <div className="mx-auto max-w-7xl px-4 py-6">
-        <nav className="mb-6 space-y-3">
-          <NavGroup title="Geral" items={mainNav} />
-          <NavGroup title="Configurações de Frete" items={freteNav} />
-          <NavGroup title="Equipe" items={teamNav} />
-          <NavGroup title="Outros" items={otherNav} />
-        </nav>
-        <Outlet />
       </div>
-    </div>
+    </SidebarProvider>
   );
 }

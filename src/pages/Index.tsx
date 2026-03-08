@@ -291,6 +291,20 @@ export default function Index() {
   const handleCarDestSelect = useCallback((sel: AddressSelection) => { setCarDestAddress(sel); setDestCoords([sel.lat, sel.lng]); }, []);
   const handleRouteCalculated = useCallback((distKm: number, durMin: number) => { setRouteDistance(distKm); setRouteDuration(durMin); }, []);
 
+  // Clear handlers — reset stale route data when user re-types
+  const handleOriginClear = useCallback(() => {
+    setOriginAddress(null); setOriginCoords(null); setRouteDistance(null); setRouteDuration(null); setResult(null);
+  }, []);
+  const handleDestClear = useCallback(() => {
+    setDestAddress(null); setDestCoords(null); setRouteDistance(null); setRouteDuration(null); setResult(null);
+  }, []);
+  const handleCarOriginClear = useCallback(() => {
+    setCarOriginAddress(null); setOriginCoords(null); setRouteDistance(null); setRouteDuration(null); setResult(null); setOriginFarWarning(false);
+  }, []);
+  const handleCarDestClear = useCallback(() => {
+    setCarDestAddress(null); setDestCoords(null); setRouteDistance(null); setRouteDuration(null); setResult(null);
+  }, []);
+
   const handleCarOriginCitySelect = useCallback((sel: CitySelection) => {
     setCarOriginCityId(sel.cityId || "");
     setCarOriginCityName(sel.cityName);
@@ -298,6 +312,7 @@ export default function Index() {
     setCarOriginAddress(null);
     setOriginCoords(null);
     setOriginFarWarning(false);
+    setRouteDistance(null); setRouteDuration(null); setResult(null);
   }, []);
 
   const handleCarDestCitySelect = useCallback((sel: CitySelection) => {
@@ -305,6 +320,7 @@ export default function Index() {
     setCarDestCityName(sel.cityName);
     setCarDestAddress(null);
     setDestCoords(null);
+    setRouteDistance(null); setRouteDuration(null); setResult(null);
   }, []);
 
   // Reset on mode change
@@ -367,11 +383,62 @@ export default function Index() {
       .map(s => ({ lat: s.address!.lat, lng: s.address!.lng }));
   }, [orderedStops]);
 
+  // Validation — scroll to missing field
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+
+  const validateAndScrollTo = useCallback((elementId: string) => {
+    const el = document.getElementById(elementId);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("ring-2", "ring-destructive");
+      setTimeout(() => el.classList.remove("ring-2", "ring-destructive"), 2500);
+    }
+  }, []);
+
+  const validateSimulation = useCallback((): boolean => {
+    const errors: string[] = [];
+
+    if (mode === "sc") {
+      if (!originCityName) { errors.push("Selecione a cidade de coleta"); }
+      if (!originAddress) { errors.push("Informe a rua de coleta com número"); }
+      if (!destCityName) { errors.push("Selecione a cidade de destino"); }
+      if (!destAddress) { errors.push("Informe a rua de destino com número"); }
+    } else {
+      if (!carOriginCityName) { errors.push("Informe a cidade de origem"); }
+      if (!carOriginAddress) { errors.push("Informe a rua de origem com número"); }
+      if (!carDestCityName) { errors.push("Informe a cidade de destino"); }
+      if (!carDestAddress) { errors.push("Informe a rua de destino com número"); }
+      if (!carItemDescription.trim()) { errors.push("Informe o que será transportado"); }
+      if (!carItemDetails.trim()) { errors.push("Descreva os itens a serem transportados"); }
+    }
+
+    setValidationErrors(errors);
+    if (errors.length > 0) {
+      toast({ title: "Campos pendentes", description: errors[0], variant: "destructive" });
+      // Scroll to first problematic field
+      if (mode === "sc") {
+        if (!originCityName || !originAddress) validateAndScrollTo("moto-origin-section");
+        else if (!destCityName || !destAddress) validateAndScrollTo("moto-dest-section");
+      } else {
+        if (!carOriginCityName || !carOriginAddress) validateAndScrollTo("car-origin-section");
+        else if (!carDestCityName || !carDestAddress) validateAndScrollTo("car-dest-section");
+        else validateAndScrollTo("car-items-section");
+      }
+      return false;
+    }
+
+    setValidationErrors([]);
+    return true;
+  }, [mode, originCityName, originAddress, destCityName, destAddress, carOriginCityName, carOriginAddress, carDestCityName, carDestAddress, carItemDescription, carItemDetails, toast, validateAndScrollTo]);
+
   // Stable ref for handleSimulate to avoid loop
   const handleSimulateRef = useRef<(distance: number) => Promise<void>>();
 
   const handleSimulate = useCallback(async (distance: number) => {
     if (isCalculatingRef.current) return;
+
+    if (!validateSimulation()) return;
+
     isCalculatingRef.current = true;
 
     // Safety timeout — never stay stuck more than 15s
@@ -451,7 +518,7 @@ export default function Index() {
       setLoading(false);
       isCalculatingRef.current = false;
     }
-  }, [mode, carItemDescription, carItemDetails, carNeedHelper, carNeedStairs, carIsApartment, carHasElevator, carNeedBubbleWrap, carHasFragile, carMultiTrip, carOriginCityId, carDestCityId, originCityName, destCityName, motoReturn, routeDuration, toast, getStopCityIds]);
+  }, [mode, carItemDescription, carItemDetails, carNeedHelper, carNeedStairs, carIsApartment, carHasElevator, carNeedBubbleWrap, carHasFragile, carMultiTrip, carOriginCityId, carDestCityId, originCityName, destCityName, motoReturn, routeDuration, toast, getStopCityIds, validateSimulation]);
 
   // Keep ref always pointing to latest handleSimulate
   useEffect(() => {
@@ -653,7 +720,7 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
                 {/* === MOTOBOY === */}
                 <TabsContent value="sc" className="space-y-5 mt-5">
                   {/* Coleta */}
-                  <div className="space-y-3">
+                  <div className="space-y-3" id="moto-origin-section">
                     <div className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-4 w-4 text-primary" /> 📍 Local de Coleta</div>
                     <div className="space-y-1">
                       <Label className="text-sm">Cidade</Label>
@@ -661,6 +728,7 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
                         setOriginCityName(v);
                         setOriginAddress(null);
                         setOriginCoords(null);
+                        setRouteDistance(null); setRouteDuration(null);
                         setResult(null);
                       }}>
                         <SelectTrigger><SelectValue placeholder="Selecione a cidade" /></SelectTrigger>
@@ -671,7 +739,7 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
                     </div>
                     <div className="space-y-1">
                       <Label className="text-sm">Rua + Número</Label>
-                      <AddressAutocomplete placeholder="Ex: Rua Brasil, 123" cityName={originCityName} disabled={!originCityName} onSelect={handleOriginSelect} />
+                      <AddressAutocomplete placeholder="Ex: Rua Brasil, 123" cityName={originCityName} disabled={!originCityName} onSelect={handleOriginSelect} onClear={handleOriginClear} />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-sm text-muted-foreground">Ponto de referência</Label>
@@ -682,7 +750,7 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
                   <div className="border-t border-border" />
 
                   {/* Destino */}
-                  <div className="space-y-3">
+                  <div className="space-y-3" id="moto-dest-section">
                     <div className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-4 w-4 text-destructive" /> 📍 Destino</div>
                     <div className="space-y-1">
                       <Label className="text-sm">Cidade</Label>
@@ -690,6 +758,7 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
                         setDestCityName(v);
                         setDestAddress(null);
                         setDestCoords(null);
+                        setRouteDistance(null); setRouteDuration(null);
                         setResult(null);
                       }}>
                         <SelectTrigger><SelectValue placeholder="Selecione a cidade" /></SelectTrigger>
@@ -700,7 +769,7 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
                     </div>
                     <div className="space-y-1">
                       <Label className="text-sm">Rua + Número</Label>
-                      <AddressAutocomplete placeholder="Ex: Rua Brasil, 123" cityName={destCityName} disabled={!destCityName} onSelect={handleDestSelect} />
+                      <AddressAutocomplete placeholder="Ex: Rua Brasil, 123" cityName={destCityName} disabled={!destCityName} onSelect={handleDestSelect} onClear={handleDestClear} />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-sm">Nome do destinatário</Label>
@@ -839,7 +908,7 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
                   </Alert>
 
                   {/* Origem */}
-                  <div className="space-y-3">
+                  <div className="space-y-3" id="car-origin-section">
                     <div className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-4 w-4 text-primary" /> 📍 Origem</div>
                     <div className="space-y-2">
                       <Label className="text-sm">Cidade</Label>
@@ -856,6 +925,7 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
                           disabled={!carOriginCityName}
                           placeholder="Ex: Rua 230, 570"
                           onSelect={handleCarOriginSelect}
+                          onClear={handleCarOriginClear}
                         />
                       </div>
                     )}
@@ -876,7 +946,7 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
                   <div className="border-t border-border" />
 
                   {/* Destino */}
-                  <div className="space-y-3">
+                  <div className="space-y-3" id="car-dest-section">
                     <div className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-4 w-4 text-destructive" /> 📍 Destino</div>
                     <div className="space-y-2">
                       <Label className="text-sm">Cidade</Label>
@@ -893,6 +963,7 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
                           disabled={!carDestCityName}
                           placeholder="Ex: Rua 230, 570"
                           onSelect={handleCarDestSelect}
+                          onClear={handleCarDestClear}
                         />
                       </div>
                     )}
@@ -909,7 +980,7 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
                   <div className="border-t border-border" />
 
                   {/* Car-specific fields */}
-                  <div className="space-y-4">
+                  <div className="space-y-4" id="car-items-section">
                     <div className="flex items-center gap-2 text-sm font-semibold"><Package className="h-4 w-4 text-primary" /> 📦 Detalhes do transporte</div>
                     <div className="space-y-2">
                       <Label className="text-sm">O que será transportado? *</Label>
@@ -958,6 +1029,7 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
               {(originCoords || destCoords) && (
                 <Suspense fallback={<div className="w-full h-[300px] rounded-xl bg-muted animate-pulse" />}>
                   <FreightMap
+                    key={`${originCoords?.join(",") || "o"}-${destCoords?.join(",") || "d"}`}
                     originCoords={originCoords}
                     destCoords={destCoords}
                     extraStopCoords={extraStopCoords}
