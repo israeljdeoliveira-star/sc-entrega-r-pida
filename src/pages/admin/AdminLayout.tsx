@@ -2,8 +2,8 @@ import { Link, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import {
-  Building2, LogOut, Truck, LayoutDashboard, Users, CarFront, Package, Zap, FileText, Code, ImageIcon, UsersRound,
-  Ruler, TrendingUp, Percent, Activity, Home, Calculator, DatabaseBackup, BarChart3
+  Building2, LogOut, Truck, LayoutDashboard, Users, CarFront, Package, Zap, Code, ImageIcon, UsersRound,
+  Ruler, TrendingUp, Percent, Activity, Home, Calculator, DatabaseBackup, BarChart3, FileText
 } from "lucide-react";
 import {
   Sidebar,
@@ -64,6 +64,7 @@ const outrosNav: NavItem[] = [
   { to: "/admin/external-codes", label: "Códigos Externos", icon: Code, desc: "Scripts e tags de terceiros" },
   { to: "/admin/service-photos", label: "Fotos Serviços", icon: ImageIcon, desc: "Carrossel de fotos na landing page" },
   { to: "/admin/data-export", label: "Exportar Dados", icon: DatabaseBackup, desc: "Download de dados do sistema" },
+  { to: "/admin/docs", label: "Documentação", icon: FileText, desc: "Resumo de prompts e funcionalidades do projeto" },
 ];
 
 const groups = [

@@ -30,6 +30,7 @@ import CollaboratorsPage from "./pages/admin/CollaboratorsPage";
 import CarPricingPage from "./pages/admin/CarPricingPage";
 import DataExportPage from "./pages/admin/DataExportPage";
 import DREPage from "./pages/admin/DREPage";
+import ProjectDocsPage from "./pages/admin/ProjectDocsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -73,6 +74,7 @@ const App = () => (
                 <Route path="car-pricing" element={<CarPricingPage />} />
                 <Route path="data-export" element={<DataExportPage />} />
                 <Route path="dre" element={<DREPage />} />
+                <Route path="docs" element={<ProjectDocsPage />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
