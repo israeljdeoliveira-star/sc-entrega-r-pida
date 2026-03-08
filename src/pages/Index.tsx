@@ -1147,6 +1147,7 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
                     size="lg"
                     onClick={async () => {
                       if (clientPhone.trim().length < 10) {
+                        setPhoneError(true);
                         toast({ title: "📱 WhatsApp obrigatório", description: "Por favor, informe seu número de WhatsApp acima antes de solicitar.", variant: "destructive" });
                         return;
                       }
