@@ -199,7 +199,11 @@ export default function AddressAutocomplete({
     setQuery(v);
     setSelectedNeighborhood("");
     setMissingNumber(false);
-    setPendingResult(null);
+
+    // If user is editing/clearing, notify parent to reset coords
+    if (!pendingResult) {
+      onClear?.();
+    }
 
     if (pendingResult && requireNumber) {
       const num = extractNumberFromInput(v);
@@ -207,6 +211,8 @@ export default function AddressAutocomplete({
         completeSelection(pendingResult, num);
         return;
       }
+    } else {
+      setPendingResult(null);
     }
 
     search(v);
