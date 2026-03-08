@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import {
   Building2, LogOut, Truck, LayoutDashboard, Users, CarFront, Package, Zap, FileText, Code, ImageIcon, UsersRound,
-  Ruler, TrendingUp, Percent, Activity, Home, Calculator, DatabaseBackup, BarChart3
+  Ruler, TrendingUp, Percent, Activity, Home, Calculator, DatabaseBackup, BarChart3, FileText
 } from "lucide-react";
 import {
   Sidebar,
