@@ -29,6 +29,7 @@ import ServicePhotosPage from "./pages/admin/ServicePhotosPage";
 import CollaboratorsPage from "./pages/admin/CollaboratorsPage";
 import CarPricingPage from "./pages/admin/CarPricingPage";
 import DataExportPage from "./pages/admin/DataExportPage";
+import DREPage from "./pages/admin/DREPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
