@@ -121,6 +121,7 @@ export default function AddressAutocomplete({
   value,
   requireNumber = true,
   onSelect,
+  onClear,
 }: AddressAutocompleteProps) {
   const [query, setQuery] = useState(value || "");
   const [results, setResults] = useState<NominatimResult[]>([]);

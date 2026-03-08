@@ -91,7 +91,7 @@ function AdminSidebar() {
           {groups.map((group) => {
             const hasActive = group.items.some(isActive);
             return (
-              <SidebarGroup key={group.title} defaultOpen={hasActive}>
+              <SidebarGroup key={group.title}>
                 <SidebarGroupLabel className="text-xs uppercase tracking-wider">{group.title}</SidebarGroupLabel>
                 <SidebarGroupContent>
                   <SidebarMenu>
