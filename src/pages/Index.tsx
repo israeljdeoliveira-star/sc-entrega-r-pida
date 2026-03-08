@@ -31,6 +31,7 @@ interface FreightResult {
   distance_km: number;
   final_value: number;
   estimated_time_min?: number;
+  simulation_id?: string;
 }
 
 const WEIGHT_OPTIONS = [
@@ -205,6 +206,8 @@ export default function Index() {
   const resultRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [clientPhone, setClientPhone] = useState("");
+  const [phoneSent, setPhoneSent] = useState(false);
   const [volumeAlert, setVolumeAlert] = useState(false);
 
   const scrollToSimulator = () => {
@@ -494,9 +497,7 @@ export default function Index() {
       if (fnError) throw fnError;
       if (data?.error) { setError(data.error); return; }
 
-      setResult({ ...data, estimated_time_min: routeDuration ? Math.round(routeDuration) : undefined });
-
-      await logSimulation({
+      const simId = await logSimulation({
         origin_city: getOriginCityName() || undefined,
         destination_city: getDestCityName() || undefined,
         vehicle_type: isCar ? "car" : "moto",
@@ -504,6 +505,8 @@ export default function Index() {
         distance_km: data.distance_km,
         final_value: data.final_value,
       });
+
+      setResult({ ...data, estimated_time_min: routeDuration ? Math.round(routeDuration) : undefined, simulation_id: simId || undefined });
       trackEvent("simulation_completed", { mode, distance });
       pushGA4Event("submit_simulacao", {
         vehicle_type: isCar ? "car" : "moto",
@@ -1114,14 +1117,61 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
                     </p>
                   </div>
 
-                  <Button className="w-full gap-2 py-6 text-base font-semibold text-white" style={{ backgroundColor: "hsl(142, 70%, 45%)" }} size="lg"
-                    onClick={() => {
+                  {/* Phone input required before WhatsApp */}
+                  <div className="space-y-3 border-t pt-4">
+                    <Label className="text-sm font-semibold">📱 Seu WhatsApp para contato *</Label>
+                    <Input
+                      type="tel"
+                      value={clientPhone}
+                      onChange={e => { setClientPhone(e.target.value); setPhoneSent(false); }}
+                      placeholder="Ex: (47) 99999-9999"
+                      className="text-sm"
+                      maxLength={20}
+                    />
+                    {!clientPhone.trim() && (
+                      <p className="text-xs text-muted-foreground">
+                        Informe seu WhatsApp para enviar a solicitação.
+                      </p>
+                    )}
+                  </div>
+
+                  <Button
+                    className="w-full gap-2 py-6 text-base font-semibold text-white"
+                    style={{ backgroundColor: clientPhone.trim().length >= 10 ? "hsl(142, 70%, 45%)" : "hsl(0, 0%, 70%)" }}
+                    size="lg"
+                    disabled={clientPhone.trim().length < 10}
+                    onClick={async () => {
+                      if (clientPhone.trim().length < 10) {
+                        toast({ title: "WhatsApp obrigatório", description: "Informe seu WhatsApp antes de enviar.", variant: "destructive" });
+                        return;
+                      }
+                      // Create order from simulation
+                      try {
+                        const isCar = mode === "national";
+                        await supabase.from("orders").insert([{
+                          client_phone: clientPhone.trim(),
+                          client_name: isCar ? carDestName || null : destName || null,
+                          origin_city: getOriginCityName() || null,
+                          destination_city: getDestCityName() || null,
+                          distance_km: result.distance_km,
+                          final_value: result.final_value,
+                          vehicle_type: isCar ? "car" : "moto",
+                          simulation_id: result.simulation_id || null,
+                          status: "pending",
+                        }]);
+                        setPhoneSent(true);
+                      } catch (e) {
+                        // silent - don't block WhatsApp
+                      }
                       pushGA4Event("click_whatsapp", { source: "result" });
                       trackEvent("click_whatsapp", { source: "result" });
                       window.open(buildWhatsAppUrl(), "_blank", "noopener,noreferrer");
                     }}>
                     <MessageCircle className="h-5 w-5" /> Solicitar pelo WhatsApp
                   </Button>
+                  {phoneSent && (
+                    <p className="text-xs text-center text-primary font-medium">✅ Solicitação registrada! Aguarde nosso contato.</p>
+                  )}
                 </div>
               )}
             </CardContent>
