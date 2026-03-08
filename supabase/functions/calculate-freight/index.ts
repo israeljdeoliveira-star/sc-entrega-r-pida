@@ -211,10 +211,12 @@ Deno.serve(async (req) => {
         } : undefined,
       };
 
-      await supabase.from("simulations_log").insert({
+      const { data: simRow } = await supabase.from("simulations_log").insert({
         mode: "sc", vehicle_type: "moto",
         origin_city: cidadeColeta || body.origin_city || null,
         destination_city: body.destination_city_name || body.destination_city || null,
+        origin_neighborhood: body.origin_neighborhood || null,
+        destination_neighborhood: body.destination_neighborhood || null,
         distance_km: distanciaEntrega,
         distancia_deslocamento_km: distanciaDeslocamento > 0 ? Math.round(distanciaDeslocamento * 10) / 10 : null,
         valor_entrega: valorEntrega,
@@ -224,9 +226,9 @@ Deno.serve(async (req) => {
         margin_applied: 0,
         config_snapshot: configSnapshot,
         ip_hash: body.ip_hash || null,
-      });
+      }).select("id").single();
 
-      return jsonResponse({ final_value: totalFinal, distance_km: distanciaEntrega, estimated_time_min: null });
+      return jsonResponse({ final_value: totalFinal, distance_km: distanciaEntrega, estimated_time_min: null, simulation_id: simRow?.id || null });
     }
 
     // ===========================================
