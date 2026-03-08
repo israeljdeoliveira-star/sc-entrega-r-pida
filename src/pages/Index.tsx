@@ -946,7 +946,7 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
                   <div className="border-t border-border" />
 
                   {/* Destino */}
-                  <div className="space-y-3">
+                  <div className="space-y-3" id="car-dest-section">
                     <div className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-4 w-4 text-destructive" /> 📍 Destino</div>
                     <div className="space-y-2">
                       <Label className="text-sm">Cidade</Label>
