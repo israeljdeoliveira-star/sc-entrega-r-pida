@@ -438,6 +438,11 @@ export default function Index() {
         final_value: data.final_value,
       });
       trackEvent("simulation_completed", { mode, distance });
+      pushGA4Event("submit_simulacao", {
+        vehicle_type: isCar ? "car" : "moto",
+        distance_km: data.distance_km,
+        final_value: data.final_value,
+      });
     } catch (err: any) {
       setError(err.message || "Erro ao calcular frete.");
       toast({ title: "Erro", description: err.message, variant: "destructive" });
