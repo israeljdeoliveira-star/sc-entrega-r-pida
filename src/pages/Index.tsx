@@ -291,6 +291,20 @@ export default function Index() {
   const handleCarDestSelect = useCallback((sel: AddressSelection) => { setCarDestAddress(sel); setDestCoords([sel.lat, sel.lng]); }, []);
   const handleRouteCalculated = useCallback((distKm: number, durMin: number) => { setRouteDistance(distKm); setRouteDuration(durMin); }, []);
 
+  // Clear handlers — reset stale route data when user re-types
+  const handleOriginClear = useCallback(() => {
+    setOriginAddress(null); setOriginCoords(null); setRouteDistance(null); setRouteDuration(null); setResult(null);
+  }, []);
+  const handleDestClear = useCallback(() => {
+    setDestAddress(null); setDestCoords(null); setRouteDistance(null); setRouteDuration(null); setResult(null);
+  }, []);
+  const handleCarOriginClear = useCallback(() => {
+    setCarOriginAddress(null); setOriginCoords(null); setRouteDistance(null); setRouteDuration(null); setResult(null); setOriginFarWarning(false);
+  }, []);
+  const handleCarDestClear = useCallback(() => {
+    setCarDestAddress(null); setDestCoords(null); setRouteDistance(null); setRouteDuration(null); setResult(null);
+  }, []);
+
   const handleCarOriginCitySelect = useCallback((sel: CitySelection) => {
     setCarOriginCityId(sel.cityId || "");
     setCarOriginCityName(sel.cityName);
@@ -298,6 +312,7 @@ export default function Index() {
     setCarOriginAddress(null);
     setOriginCoords(null);
     setOriginFarWarning(false);
+    setRouteDistance(null); setRouteDuration(null); setResult(null);
   }, []);
 
   const handleCarDestCitySelect = useCallback((sel: CitySelection) => {
@@ -305,6 +320,7 @@ export default function Index() {
     setCarDestCityName(sel.cityName);
     setCarDestAddress(null);
     setDestCoords(null);
+    setRouteDistance(null); setRouteDuration(null); setResult(null);
   }, []);
 
   // Reset on mode change
