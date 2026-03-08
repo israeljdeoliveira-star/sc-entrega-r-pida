@@ -980,7 +980,7 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
                   <div className="border-t border-border" />
 
                   {/* Car-specific fields */}
-                  <div className="space-y-4">
+                  <div className="space-y-4" id="car-items-section">
                     <div className="flex items-center gap-2 text-sm font-semibold"><Package className="h-4 w-4 text-primary" /> 📦 Detalhes do transporte</div>
                     <div className="space-y-2">
                       <Label className="text-sm">O que será transportado? *</Label>
