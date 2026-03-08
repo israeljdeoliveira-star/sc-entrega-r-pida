@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback, lazy, Suspense, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { trackEvent, logSimulation, pushGA4Event } from "@/lib/analytics";
+import { trackEvent, pushGA4Event } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
