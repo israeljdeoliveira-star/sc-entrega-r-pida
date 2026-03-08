@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { MessageCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { pushGA4Event, trackEvent } from "@/lib/analytics";
 
 export default function WhatsAppFloat() {
   const [whatsappNumber, setWhatsappNumber] = useState("5547999999999");
