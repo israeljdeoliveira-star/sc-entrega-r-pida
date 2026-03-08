@@ -1,39 +1,22 @@
+## Plano: Correção UX + Resumo + Precificação Inteligente + Alerta Volume
 
+### Fase 1 — UX Simulação + Resumo ✅
+- Removido `scrollIntoView` automático no recálculo
+- Resultado mantido visível durante recálculo (loading overlay sem limpar `result`)
+- Adicionada seção "Resumo dos endereços" no card de resultado (Coleta/Paradas/Entrega com letras A/B/C)
 
-## Plano: Adicionar eventos GA4 de conversão (click_whatsapp e submit_simulacao)
+### Fase 2 — Admin Precificação Inteligente Carro ✅
+- Criadas tabelas: `vehicle_profiles`, `pricing_cost_inputs`, `pricing_simulations` (RLS admin-only)
+- Nova página `/admin/car-pricing` com formulários completos
+- Gráficos: pizza composição custo, barras cenários, linha sensibilidade combustível
+- Botão "Aplicar preço recomendado" → atualiza `freight_settings.price_per_km_car` + log
 
-### Objetivo
-Disparar eventos GA4 (`gtag('event', ...)`) nos cliques de WhatsApp e na conclusão de simulação, além do tracking interno já existente.
+### Fase 3 — Backend Cálculo Carro com Feature Flag ✅
+- Adicionada coluna `use_new_car_pricing` em `freight_settings` (default false)
+- Regra: `max(98, 98 + (km-1) * price_per_km)` quando flag ativa
+- Aplicada em SC carro e nacional carro
 
-### Abordagem
-Adicionar uma função helper `pushGA4Event` em `src/lib/analytics.ts` que chama `window.gtag()` (se disponível). Depois, chamar essa função nos pontos relevantes.
-
-### Mudanças
-
-**1. `src/lib/analytics.ts`** — Adicionar helper GA4:
-```typescript
-export function pushGA4Event(eventName: string, params?: Record<string, unknown>) {
-  if (typeof window !== 'undefined' && (window as any).gtag) {
-    (window as any).gtag('event', eventName, params);
-  }
-}
-```
-
-**2. `src/components/WhatsAppFloat.tsx`** — Ao clicar, disparar `click_whatsapp`:
-- Trocar `<a>` por onClick handler que chama `pushGA4Event("click_whatsapp", { source: "float_button" })` + `trackEvent(...)` e depois abre o link.
-
-**3. `src/components/HeroSection.tsx`** — No botão "Falar no WhatsApp":
-- Adicionar onClick com `pushGA4Event("click_whatsapp", { source: "hero" })` antes de abrir o link.
-
-**4. `src/pages/Index.tsx`** — Nos links WhatsApp do resultado e do footer:
-- Adicionar `pushGA4Event("click_whatsapp", { source: "result" })` e `source: "footer"` respectivamente.
-- Na linha ~440 (simulation_completed), adicionar `pushGA4Event("submit_simulacao", { vehicle_type, distance_km, final_value })`.
-
-### Arquivos alterados
-| Arquivo | Mudança |
-|---------|---------|
-| `src/lib/analytics.ts` | Adicionar `pushGA4Event` |
-| `src/components/WhatsAppFloat.tsx` | Disparar `click_whatsapp` no clique |
-| `src/components/HeroSection.tsx` | Disparar `click_whatsapp` no botão hero |
-| `src/pages/Index.tsx` | Disparar `submit_simulacao` + `click_whatsapp` nos links de resultado/footer |
-
+### Fase 4 — Alerta Inteligente de Volume ✅
+- Heurística de volume/peso por item (sofá 1.5m³/40kg, geladeira 0.8m³/60kg, etc.)
+- Cruzamento com capacidade do veículo (2.5m³ / 500kg)
+- Estimativa de número de viagens e impacto mostrado ao usuário

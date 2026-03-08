@@ -1,6 +1,12 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 
+export function pushGA4Event(eventName: string, params?: Record<string, unknown>) {
+  if (typeof window !== "undefined" && (window as any).gtag) {
+    (window as any).gtag("event", eventName, params);
+  }
+}
+
 export async function trackEvent(eventType: string, eventData?: Record<string, Json>, page?: string) {
   try {
     await supabase.from("analytics_events").insert([{

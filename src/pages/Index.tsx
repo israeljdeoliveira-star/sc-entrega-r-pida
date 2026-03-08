@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback, lazy, Suspense, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { trackEvent, logSimulation } from "@/lib/analytics";
+import { trackEvent, logSimulation, pushGA4Event } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -438,6 +438,11 @@ export default function Index() {
         final_value: data.final_value,
       });
       trackEvent("simulation_completed", { mode, distance });
+      pushGA4Event("submit_simulacao", {
+        vehicle_type: isCar ? "car" : "moto",
+        distance_km: data.distance_km,
+        final_value: data.final_value,
+      });
     } catch (err: any) {
       setError(err.message || "Erro ao calcular frete.");
       toast({ title: "Erro", description: err.message, variant: "destructive" });
@@ -1037,10 +1042,13 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
                     </p>
                   </div>
 
-                  <Button asChild className="w-full gap-2 py-6 text-base font-semibold text-white" style={{ backgroundColor: "hsl(142, 70%, 45%)" }} size="lg">
-                    <a href={buildWhatsAppUrl()} target="_blank" rel="noopener noreferrer">
-                      <MessageCircle className="h-5 w-5" /> Solicitar pelo WhatsApp
-                    </a>
+                  <Button className="w-full gap-2 py-6 text-base font-semibold text-white" style={{ backgroundColor: "hsl(142, 70%, 45%)" }} size="lg"
+                    onClick={() => {
+                      pushGA4Event("click_whatsapp", { source: "result" });
+                      trackEvent("click_whatsapp", { source: "result" });
+                      window.open(buildWhatsAppUrl(), "_blank", "noopener,noreferrer");
+                    }}>
+                    <MessageCircle className="h-5 w-5" /> Solicitar pelo WhatsApp
                   </Button>
                 </div>
               )}
@@ -1107,7 +1115,7 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
             <div>
               <h4 className="font-semibold mb-3 text-sm">Contato</h4>
               <ul className="space-y-1.5 text-sm text-muted-foreground">
-                <li><a href={`https://wa.me/${WHATSAPP_FIXED}`} target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">WhatsApp</a></li>
+                <li><a href={`https://wa.me/${WHATSAPP_FIXED}`} target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors" onClick={() => { pushGA4Event("click_whatsapp", { source: "footer" }); trackEvent("click_whatsapp", { source: "footer" }); }}>WhatsApp</a></li>
                 <li><a href="#top" className="hover:text-primary transition-colors">Início</a></li>
               </ul>
             </div>
