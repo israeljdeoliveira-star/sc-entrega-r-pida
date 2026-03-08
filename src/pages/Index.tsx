@@ -206,6 +206,8 @@ export default function Index() {
   const resultRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [clientPhone, setClientPhone] = useState("");
+  const [phoneSent, setPhoneSent] = useState(false);
   const [volumeAlert, setVolumeAlert] = useState(false);
 
   const scrollToSimulator = () => {
