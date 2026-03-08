@@ -37,6 +37,7 @@ interface AddressAutocompleteProps {
   value?: string;
   requireNumber?: boolean;
   onSelect: (selection: AddressSelection) => void;
+  onClear?: () => void;
 }
 
 /** Normalize query: trim, collapse spaces, fix commas glued to numbers */
