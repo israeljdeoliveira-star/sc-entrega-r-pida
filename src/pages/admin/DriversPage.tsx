@@ -8,9 +8,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, Pencil } from "lucide-react";
+import { Plus, Trash2, Pencil, BarChart3 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import type { Tables } from "@/integrations/supabase/types";
+import DriverReportDialog from "./DriverReportDialog";
 
 type Driver = Tables<"drivers">;
 
@@ -22,6 +23,8 @@ export default function DriversPage() {
   const [licensePlate, setLicensePlate] = useState("");
   const [editing, setEditing] = useState<Driver | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [reportDriver, setReportDriver] = useState<Driver | null>(null);
+  const [comissaoPct, setComissaoPct] = useState(15);
   const { toast } = useToast();
 
   const fetchDrivers = async () => {
@@ -29,7 +32,12 @@ export default function DriversPage() {
     if (data) setDrivers(data);
   };
 
-  useEffect(() => { fetchDrivers(); }, []);
+  useEffect(() => {
+    fetchDrivers();
+    supabase.from("freight_settings").select("comissao_moto, comissao_carro").limit(1).single().then(({ data }) => {
+      if (data) setComissaoPct(Math.max(Number(data.comissao_moto || 15), Number(data.comissao_carro || 15)));
+    });
+  }, []);
 
   const handleSave = async () => {
     if (!name.trim()) return;
@@ -66,78 +74,90 @@ export default function DriversPage() {
   };
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Motoristas</CardTitle>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" onClick={() => resetForm()}><Plus className="mr-1 h-4 w-4" /> Novo Motorista</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>{editing ? "Editar Motorista" : "Novo Motorista"}</DialogTitle></DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Nome</Label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome completo" />
+    <>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Motoristas</CardTitle>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" onClick={() => resetForm()}><Plus className="mr-1 h-4 w-4" /> Novo Motorista</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>{editing ? "Editar Motorista" : "Novo Motorista"}</DialogTitle></DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Nome</Label>
+                  <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome completo" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Telefone</Label>
+                  <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(48) 99999-9999" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Tipo de Veículo</Label>
+                  <Select value={vehicleType} onValueChange={setVehicleType}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="moto">Moto</SelectItem>
+                      <SelectItem value="car">Carro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Placa</Label>
+                  <Input value={licensePlate} onChange={(e) => setLicensePlate(e.target.value)} placeholder="ABC-1234" />
+                </div>
+                <Button onClick={handleSave} className="w-full">Salvar</Button>
               </div>
-              <div className="space-y-2">
-                <Label>Telefone</Label>
-                <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(48) 99999-9999" />
-              </div>
-              <div className="space-y-2">
-                <Label>Tipo de Veículo</Label>
-                <Select value={vehicleType} onValueChange={setVehicleType}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="moto">Moto</SelectItem>
-                    <SelectItem value="car">Carro</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Placa</Label>
-                <Input value={licensePlate} onChange={(e) => setLicensePlate(e.target.value)} placeholder="ABC-1234" />
-              </div>
-              <Button onClick={handleSave} className="w-full">Salvar</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </CardHeader>
-      <CardContent>
-        {drivers.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8">Nenhum motorista cadastrado.</p>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>Telefone</TableHead>
-                <TableHead>Veículo</TableHead>
-                <TableHead>Placa</TableHead>
-                <TableHead>Ativo</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {drivers.map((d) => (
-                <TableRow key={d.id}>
-                  <TableCell className="font-medium">{d.name}</TableCell>
-                  <TableCell>{d.phone || "—"}</TableCell>
-                  <TableCell className="capitalize">{d.vehicle_type === "car" ? "Carro" : "Moto"}</TableCell>
-                  <TableCell>{d.license_plate || "—"}</TableCell>
-                  <TableCell>
-                    <Switch checked={d.is_active} onCheckedChange={() => toggleActive(d)} />
-                  </TableCell>
-                  <TableCell className="text-right space-x-1">
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(d)}><Pencil className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(d.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                  </TableCell>
+            </DialogContent>
+          </Dialog>
+        </CardHeader>
+        <CardContent>
+          {drivers.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">Nenhum motorista cadastrado.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Telefone</TableHead>
+                  <TableHead>Veículo</TableHead>
+                  <TableHead>Placa</TableHead>
+                  <TableHead>Ativo</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </CardContent>
-    </Card>
+              </TableHeader>
+              <TableBody>
+                {drivers.map((d) => (
+                  <TableRow key={d.id}>
+                    <TableCell className="font-medium">{d.name}</TableCell>
+                    <TableCell>{d.phone || "—"}</TableCell>
+                    <TableCell className="capitalize">{d.vehicle_type === "car" ? "Carro" : "Moto"}</TableCell>
+                    <TableCell>{d.license_plate || "—"}</TableCell>
+                    <TableCell>
+                      <Switch checked={d.is_active} onCheckedChange={() => toggleActive(d)} />
+                    </TableCell>
+                    <TableCell className="text-right space-x-1">
+                      <Button variant="ghost" size="icon" onClick={() => setReportDriver(d)} title="Relatório">
+                        <BarChart3 className="h-4 w-4 text-primary" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => openEdit(d)}><Pencil className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDelete(d.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <DriverReportDialog
+        driver={reportDriver}
+        open={!!reportDriver}
+        onClose={() => setReportDriver(null)}
+        comissaoPct={comissaoPct}
+      />
+    </>
   );
 }

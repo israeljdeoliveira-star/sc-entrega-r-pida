@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import {
   Building2, LogOut, Truck, LayoutDashboard, Users, CarFront, Package, Zap, FileText, Code, ImageIcon, UsersRound,
-  Ruler, TrendingUp, Percent, Activity, Home, Calculator, DatabaseBackup
+  Ruler, TrendingUp, Percent, Activity, Home, Calculator, DatabaseBackup, BarChart3
 } from "lucide-react";
 import {
   Sidebar,
@@ -32,6 +32,7 @@ type NavItem = {
 const geralNav: NavItem[] = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true, desc: "Visão geral do sistema e métricas" },
   { to: "/admin/orders", label: "Pedidos", icon: Package, desc: "Gerenciar pedidos recebidos" },
+  { to: "/admin/dre", label: "DRE Mensal", icon: BarChart3, desc: "Demonstrativo de resultados e lucro" },
 ];
 
 const precificacaoNav: NavItem[] = [
