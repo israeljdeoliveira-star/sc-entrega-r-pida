@@ -384,7 +384,7 @@ Deno.serve(async (req) => {
         valorFinal = Math.ceil(valorFinal * (1 - multiTripDiscountPct / 100));
       }
 
-      await supabase.from("simulations_log").insert({
+      const { data: simRow3 } = await supabase.from("simulations_log").insert({
         mode, vehicle_type,
         origin_city: body.origin_text || null,
         destination_city: body.destination_text || null,
@@ -394,9 +394,9 @@ Deno.serve(async (req) => {
         margin_applied: margemTotal,
         config_snapshot: { mode, vehicle_type, baseValue, combinedMult, margemTotal, additionalsTotal, valorFinal },
         ip_hash: body.ip_hash || null,
-      });
+      }).select("id").single();
 
-      return jsonResponse({ final_value: valorFinal, distance_km: clientDistance, estimated_time_min: null });
+      return jsonResponse({ final_value: valorFinal, distance_km: clientDistance, estimated_time_min: null, simulation_id: simRow3?.id || null });
     }
 
     return jsonResponse({ error: "Modo inválido." }, 400);

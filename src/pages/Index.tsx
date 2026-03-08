@@ -498,14 +498,7 @@ export default function Index() {
       if (fnError) throw fnError;
       if (data?.error) { setError(data.error); return; }
 
-      const simId = await logSimulation({
-        origin_city: getOriginCityName() || undefined,
-        destination_city: getDestCityName() || undefined,
-        vehicle_type: isCar ? "car" : "moto",
-        mode: carOriginCityId && carDestCityId ? "sc" : "national",
-        distance_km: data.distance_km,
-        final_value: data.final_value,
-      });
+      const simId = data.simulation_id || null;
 
       setResult({ ...data, estimated_time_min: routeDuration ? Math.round(routeDuration) : undefined, simulation_id: simId || undefined });
       trackEvent("simulation_completed", { mode, distance });
