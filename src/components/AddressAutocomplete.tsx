@@ -176,11 +176,10 @@ export default function AddressAutocomplete({
         try {
           let data = await fetchNominatim(normalized, cityName, state);
 
-          // Filter by cityName only if provided
+          // Filter by cityName only if provided (accent-insensitive and tolerant)
           if (cityName) {
-            data = data.filter((r) =>
-              r.display_name.toLowerCase().includes(cityName.toLowerCase())
-            );
+            const filtered = data.filter((r) => isCityMatch(r, cityName));
+            data = filtered.length > 0 ? filtered : data;
           }
 
           // Fallback: if no results, retry without house number part
