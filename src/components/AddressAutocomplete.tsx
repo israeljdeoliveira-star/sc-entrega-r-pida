@@ -91,6 +91,22 @@ function getCityFromResult(r: NominatimResult): string {
   return r.address?.city || r.address?.town || r.address?.village || r.address?.municipality || "";
 }
 
+function normalizeComparable(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function isCityMatch(result: NominatimResult, cityName: string): boolean {
+  if (!cityName) return true;
+  const expected = normalizeComparable(cityName);
+  const cityFromAddress = normalizeComparable(getCityFromResult(result));
+  const display = normalizeComparable(result.display_name);
+  return cityFromAddress.includes(expected) || display.includes(expected);
+}
+
 async function fetchNominatim(
   queryText: string,
   cityName: string,
