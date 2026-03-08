@@ -305,7 +305,7 @@ Deno.serve(async (req) => {
         valorFinal = Math.ceil(valorFinal * (1 - multiTripDiscountPct / 100));
       }
 
-      await supabase.from("simulations_log").insert({
+      const { data: simRow2 } = await supabase.from("simulations_log").insert({
         mode, vehicle_type,
         origin_city: originCity.name,
         destination_city: destCity.name,
@@ -315,9 +315,9 @@ Deno.serve(async (req) => {
         margin_applied: margemTotal,
         config_snapshot: { mode, vehicle_type, baseForCalc, margemTotal, additionalsTotal, valorFinal },
         ip_hash: body.ip_hash || null,
-      });
+      }).select("id").single();
 
-      return jsonResponse({ final_value: valorFinal, distance_km: distanceKm, estimated_time_min: null });
+      return jsonResponse({ final_value: valorFinal, distance_km: distanceKm, estimated_time_min: null, simulation_id: simRow2?.id || null });
     }
 
     // --- NATIONAL MODE ---
