@@ -720,7 +720,7 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
                 {/* === MOTOBOY === */}
                 <TabsContent value="sc" className="space-y-5 mt-5">
                   {/* Coleta */}
-                  <div className="space-y-3">
+                  <div className="space-y-3" id="moto-origin-section">
                     <div className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-4 w-4 text-primary" /> 📍 Local de Coleta</div>
                     <div className="space-y-1">
                       <Label className="text-sm">Cidade</Label>
