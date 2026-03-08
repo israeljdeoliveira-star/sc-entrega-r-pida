@@ -23,16 +23,20 @@ export default function WhatsAppFloat() {
 
   if (!show) return null;
 
+  const handleClick = () => {
+    pushGA4Event("click_whatsapp", { source: "float_button" });
+    trackEvent("click_whatsapp", { source: "float_button" });
+    window.open(`https://wa.me/${whatsappNumber}`, "_blank", "noopener,noreferrer");
+  };
+
   return (
-    <a
-      href={`https://wa.me/${whatsappNumber}`}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-110"
+    <button
+      onClick={handleClick}
+      className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-110 cursor-pointer border-0"
       style={{ backgroundColor: "hsl(142, 70%, 45%)" }}
       aria-label="Falar no WhatsApp"
     >
       <MessageCircle className="h-7 w-7 text-white" />
-    </a>
+    </button>
   );
 }

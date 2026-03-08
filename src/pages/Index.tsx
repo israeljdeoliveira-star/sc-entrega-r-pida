@@ -1115,7 +1115,7 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
             <div>
               <h4 className="font-semibold mb-3 text-sm">Contato</h4>
               <ul className="space-y-1.5 text-sm text-muted-foreground">
-                <li><a href={`https://wa.me/${WHATSAPP_FIXED}`} target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">WhatsApp</a></li>
+                <li><a href={`https://wa.me/${WHATSAPP_FIXED}`} target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors" onClick={() => { pushGA4Event("click_whatsapp", { source: "footer" }); trackEvent("click_whatsapp", { source: "footer" }); }}>WhatsApp</a></li>
                 <li><a href="#top" className="hover:text-primary transition-colors">Início</a></li>
               </ul>
             </div>
