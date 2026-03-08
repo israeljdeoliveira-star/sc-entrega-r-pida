@@ -495,9 +495,7 @@ export default function Index() {
       if (fnError) throw fnError;
       if (data?.error) { setError(data.error); return; }
 
-      setResult({ ...data, estimated_time_min: routeDuration ? Math.round(routeDuration) : undefined });
-
-      await logSimulation({
+      const simId = await logSimulation({
         origin_city: getOriginCityName() || undefined,
         destination_city: getDestCityName() || undefined,
         vehicle_type: isCar ? "car" : "moto",
@@ -505,6 +503,8 @@ export default function Index() {
         distance_km: data.distance_km,
         final_value: data.final_value,
       });
+
+      setResult({ ...data, estimated_time_min: routeDuration ? Math.round(routeDuration) : undefined, simulation_id: simId || undefined });
       trackEvent("simulation_completed", { mode, distance });
       pushGA4Event("submit_simulacao", {
         vehicle_type: isCar ? "car" : "moto",
