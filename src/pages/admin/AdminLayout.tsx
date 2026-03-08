@@ -2,7 +2,7 @@ import { Link, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import {
-  Building2, LogOut, Truck, LayoutDashboard, Users, CarFront, Package, Zap, FileText, Code, ImageIcon, UsersRound,
+  Building2, LogOut, Truck, LayoutDashboard, Users, CarFront, Package, Zap, Code, ImageIcon, UsersRound,
   Ruler, TrendingUp, Percent, Activity, Home, Calculator, DatabaseBackup, BarChart3, FileText
 } from "lucide-react";
 import {
