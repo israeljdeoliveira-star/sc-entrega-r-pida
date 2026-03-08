@@ -31,6 +31,7 @@ interface FreightResult {
   distance_km: number;
   final_value: number;
   estimated_time_min?: number;
+  simulation_id?: string;
 }
 
 const WEIGHT_OPTIONS = [
