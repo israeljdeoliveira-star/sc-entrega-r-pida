@@ -1,16 +1,18 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Package, Search, Truck, Clock, CheckCircle2, XCircle, ArrowUpDown } from "lucide-react";
+import { Package, Search, Truck, CheckCircle2, XCircle, ArrowUpDown, Phone, MapPin, Ruler, DollarSign, Clock, Eye } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Order = Tables<"orders">;
 type Driver = Tables<"drivers">;
+type SimLog = Tables<"simulations_log">;
 
 const STATUS_MAP: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   pending: { label: "Pendente", variant: "secondary" },
@@ -29,9 +31,11 @@ const NEXT_STATUS: Record<string, string> = {
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [simulations, setSimulations] = useState<Record<string, SimLog>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const { toast } = useToast();
 
   useEffect(() => { fetchData(); }, []);
@@ -41,8 +45,26 @@ export default function OrdersPage() {
       supabase.from("orders").select("*").order("created_at", { ascending: false }),
       supabase.from("drivers").select("*").eq("is_active", true).order("name"),
     ]);
-    setOrders(ordRes.data || []);
+    const ordersData = ordRes.data || [];
+    setOrders(ordersData);
     setDrivers(drvRes.data || []);
+
+    // Fetch linked simulations
+    const simIds = ordersData
+      .map(o => o.simulation_id)
+      .filter((id): id is string => !!id);
+    
+    if (simIds.length > 0) {
+      const { data: simData } = await supabase
+        .from("simulations_log")
+        .select("*")
+        .in("id", simIds);
+      
+      const simMap: Record<string, SimLog> = {};
+      (simData || []).forEach(s => { simMap[s.id] = s; });
+      setSimulations(simMap);
+    }
+
     setLoading(false);
   };
 
@@ -72,6 +94,11 @@ export default function OrdersPage() {
   });
 
   const getDriverName = (id: string | null) => drivers.find(d => d.id === id)?.name || "—";
+
+  const getSimulation = (order: Order): SimLog | null => {
+    if (!order.simulation_id) return null;
+    return simulations[order.simulation_id] || null;
+  };
 
   if (loading) return <div className="flex justify-center py-12"><p className="text-muted-foreground">Carregando pedidos...</p></div>;
 
@@ -104,23 +131,52 @@ export default function OrdersPage() {
           {filtered.map(order => {
             const status = STATUS_MAP[order.status] || STATUS_MAP.pending;
             const next = NEXT_STATUS[order.status];
+            const sim = getSimulation(order);
             return (
               <Card key={order.id}>
                 <CardContent className="p-4">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="space-y-1 flex-1 min-w-0">
+                    <div className="space-y-1.5 flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-semibold">{order.client_name || "Cliente anônimo"}</span>
                         <Badge variant={status.variant}>{status.label}</Badge>
+                        {order.vehicle_type && (
+                          <Badge variant="outline" className="text-xs capitalize">
+                            {order.vehicle_type === "moto" ? "🛵 Moto" : "🚗 Carro"}
+                          </Badge>
+                        )}
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        {order.origin_city || "—"} → {order.destination_city || "—"}
-                        {order.distance_km ? ` • ${Number(order.distance_km).toFixed(0)} km` : ""}
-                      </p>
+
+                      {/* Route info */}
+                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <MapPin className="h-3.5 w-3.5 shrink-0" />
+                        <span>{order.origin_city || "—"} → {order.destination_city || "—"}</span>
+                        {order.distance_km && <span className="text-xs">• {Number(order.distance_km).toFixed(0)} km</span>}
+                      </div>
+
+                      {/* Phone */}
+                      {order.client_phone && (
+                        <div className="flex items-center gap-1.5 text-sm">
+                          <Phone className="h-3.5 w-3.5 text-primary shrink-0" />
+                          <a href={`https://wa.me/${order.client_phone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">
+                            {order.client_phone}
+                          </a>
+                        </div>
+                      )}
+
+                      {/* Simulation details */}
+                      {sim && (
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap mt-1">
+                          {sim.origin_neighborhood && <span>📍 Bairro: {sim.origin_neighborhood}</span>}
+                          {sim.distancia_deslocamento_km && <span>🚚 Desloc: {Number(sim.distancia_deslocamento_km).toFixed(1)} km</span>}
+                          {sim.valor_deslocamento && <span>💲 Desloc: R$ {Number(sim.valor_deslocamento).toFixed(2)}</span>}
+                          {sim.valor_entrega && <span>📦 Entrega: R$ {Number(sim.valor_entrega).toFixed(2)}</span>}
+                        </div>
+                      )}
+
                       <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
-                        {order.client_phone && <span>📞 {order.client_phone}</span>}
-                        <span>{new Date(order.created_at).toLocaleString("pt-BR")}</span>
-                        {order.vehicle_type && <span className="capitalize">{order.vehicle_type}</span>}
+                        <span><Clock className="h-3 w-3 inline mr-1" />{new Date(order.created_at).toLocaleString("pt-BR")}</span>
+                        {sim && <button onClick={() => setSelectedOrder(order)} className="text-primary hover:underline flex items-center gap-1"><Eye className="h-3 w-3" /> Ver simulação</button>}
                       </div>
                     </div>
 
@@ -163,6 +219,62 @@ export default function OrdersPage() {
           })}
         </div>
       )}
+
+      {/* Simulation detail dialog */}
+      <Dialog open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Eye className="h-5 w-5" /> Detalhes da Simulação</DialogTitle>
+          </DialogHeader>
+          {selectedOrder && (() => {
+            const sim = getSimulation(selectedOrder);
+            if (!sim) return <p className="text-muted-foreground text-sm">Simulação não encontrada.</p>;
+            return (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="space-y-1">
+                    <span className="text-xs text-muted-foreground font-medium">Origem</span>
+                    <p className="font-medium">{sim.origin_city || "—"}</p>
+                    {sim.origin_neighborhood && <p className="text-xs text-muted-foreground">{sim.origin_neighborhood}</p>}
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-xs text-muted-foreground font-medium">Destino</span>
+                    <p className="font-medium">{sim.destination_city || "—"}</p>
+                    {sim.destination_neighborhood && <p className="text-xs text-muted-foreground">{sim.destination_neighborhood}</p>}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <InfoRow label="Veículo" value={sim.vehicle_type === "car" ? "🚗 Carro" : "🛵 Moto"} />
+                  <InfoRow label="Modo" value={sim.mode === "national" ? "Nacional" : "SC"} />
+                  <InfoRow label="Distância entrega" value={sim.distance_km ? `${Number(sim.distance_km).toFixed(1)} km` : "—"} />
+                  <InfoRow label="Dist. deslocamento" value={sim.distancia_deslocamento_km ? `${Number(sim.distancia_deslocamento_km).toFixed(1)} km` : "—"} />
+                  <InfoRow label="Valor entrega" value={sim.valor_entrega ? `R$ ${Number(sim.valor_entrega).toFixed(2)}` : "—"} />
+                  <InfoRow label="Valor deslocamento" value={sim.valor_deslocamento ? `R$ ${Number(sim.valor_deslocamento).toFixed(2)}` : "—"} />
+                  <InfoRow label="Valor operacional" value={sim.operational_value ? `R$ ${Number(sim.operational_value).toFixed(2)}` : "—"} />
+                  <InfoRow label="Margem aplicada" value={sim.margin_applied ? `${Number(sim.margin_applied).toFixed(1)}%` : "—"} />
+                </div>
+
+                <div className="border-t pt-3 flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Valor final</span>
+                  <span className="text-2xl font-bold text-primary">R$ {Number(sim.final_value || 0).toFixed(2)}</span>
+                </div>
+
+                <p className="text-xs text-muted-foreground">Simulado em {new Date(sim.created_at).toLocaleString("pt-BR")}</p>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="space-y-0.5">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <p className="font-medium">{value}</p>
     </div>
   );
 }
