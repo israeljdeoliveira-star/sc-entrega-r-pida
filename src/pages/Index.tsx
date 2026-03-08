@@ -912,6 +912,7 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
                           disabled={!carDestCityName}
                           placeholder="Ex: Rua 230, 570"
                           onSelect={handleCarDestSelect}
+                          onClear={handleCarDestClear}
                         />
                       </div>
                     )}
