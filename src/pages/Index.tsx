@@ -208,6 +208,7 @@ export default function Index() {
   const [error, setError] = useState("");
   const [clientPhone, setClientPhone] = useState("");
   const [phoneSent, setPhoneSent] = useState(false);
+  const [phoneError, setPhoneError] = useState(false);
   const [volumeAlert, setVolumeAlert] = useState(false);
 
   const scrollToSimulator = () => {
