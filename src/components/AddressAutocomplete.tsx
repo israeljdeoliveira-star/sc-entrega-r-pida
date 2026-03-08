@@ -188,9 +188,8 @@ export default function AddressAutocomplete({
             if (stripped !== normalized && stripped.length >= 3) {
               let fallback = await fetchNominatim(stripped, cityName, state);
               if (cityName) {
-                fallback = fallback.filter((r) =>
-                  r.display_name.toLowerCase().includes(cityName.toLowerCase())
-                );
+                const filteredFallback = fallback.filter((r) => isCityMatch(r, cityName));
+                fallback = filteredFallback.length > 0 ? filteredFallback : fallback;
               }
               data = fallback;
             }
