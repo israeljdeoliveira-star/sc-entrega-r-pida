@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, MessageCircle } from "lucide-react";
-import { trackEvent } from "@/lib/analytics";
+import { trackEvent, pushGA4Event } from "@/lib/analytics";
 import { supabase } from "@/integrations/supabase/client";
 
 const CITIES = ["Itapema", "Porto Belo", "Tijucas", "Bombinhas", "Bal. Camboriú", "Itajaí"];
