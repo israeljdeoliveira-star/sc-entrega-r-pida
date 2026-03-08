@@ -91,6 +91,22 @@ function getCityFromResult(r: NominatimResult): string {
   return r.address?.city || r.address?.town || r.address?.village || r.address?.municipality || "";
 }
 
+function normalizeComparable(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function isCityMatch(result: NominatimResult, cityName: string): boolean {
+  if (!cityName) return true;
+  const expected = normalizeComparable(cityName);
+  const cityFromAddress = normalizeComparable(getCityFromResult(result));
+  const display = normalizeComparable(result.display_name);
+  return cityFromAddress.includes(expected) || display.includes(expected);
+}
+
 async function fetchNominatim(
   queryText: string,
   cityName: string,
@@ -107,8 +123,7 @@ async function fetchNominatim(
     countrycodes: "br",
   });
   const res = await fetch(
-    `https://nominatim.openstreetmap.org/search?${params}`,
-    { headers: { "User-Agent": "FreteGarca/1.0" } }
+    `https://nominatim.openstreetmap.org/search?${params}`
   );
   return res.json();
 }
@@ -161,11 +176,10 @@ export default function AddressAutocomplete({
         try {
           let data = await fetchNominatim(normalized, cityName, state);
 
-          // Filter by cityName only if provided
+          // Filter by cityName only if provided (accent-insensitive and tolerant)
           if (cityName) {
-            data = data.filter((r) =>
-              r.display_name.toLowerCase().includes(cityName.toLowerCase())
-            );
+            const filtered = data.filter((r) => isCityMatch(r, cityName));
+            data = filtered.length > 0 ? filtered : data;
           }
 
           // Fallback: if no results, retry without house number part
@@ -174,9 +188,8 @@ export default function AddressAutocomplete({
             if (stripped !== normalized && stripped.length >= 3) {
               let fallback = await fetchNominatim(stripped, cityName, state);
               if (cityName) {
-                fallback = fallback.filter((r) =>
-                  r.display_name.toLowerCase().includes(cityName.toLowerCase())
-                );
+                const filteredFallback = fallback.filter((r) => isCityMatch(r, cityName));
+                fallback = filteredFallback.length > 0 ? filteredFallback : fallback;
               }
               data = fallback;
             }
