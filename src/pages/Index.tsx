@@ -1136,13 +1136,12 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
                   </div>
 
                   <Button
-                    className="w-full gap-2 py-6 text-base font-semibold text-white"
-                    style={{ backgroundColor: clientPhone.trim().length >= 10 ? "hsl(142, 70%, 45%)" : "hsl(0, 0%, 70%)" }}
+                    className="w-full gap-2 py-6 text-base font-semibold text-white animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite] hover:animate-none"
+                    style={{ backgroundColor: "hsl(142, 70%, 45%)" }}
                     size="lg"
-                    disabled={clientPhone.trim().length < 10}
                     onClick={async () => {
                       if (clientPhone.trim().length < 10) {
-                        toast({ title: "WhatsApp obrigatório", description: "Informe seu WhatsApp antes de enviar.", variant: "destructive" });
+                        toast({ title: "📱 WhatsApp obrigatório", description: "Por favor, informe seu número de WhatsApp acima antes de solicitar.", variant: "destructive" });
                         return;
                       }
                       // Create order from simulation
