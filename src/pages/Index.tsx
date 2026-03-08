@@ -1124,12 +1124,17 @@ Acabei de fazer uma simula\u00e7\u00e3o e gostaria de solicitar um frete.
                     <Input
                       type="tel"
                       value={clientPhone}
-                      onChange={e => { setClientPhone(e.target.value); setPhoneSent(false); }}
+                      onChange={e => { setClientPhone(e.target.value); setPhoneSent(false); setPhoneError(false); }}
                       placeholder="Ex: (47) 99999-9999"
-                      className="text-sm"
+                      className={`text-sm ${phoneError ? "border-destructive ring-destructive/30 ring-2" : ""}`}
                       maxLength={20}
                     />
-                    {!clientPhone.trim() && (
+                    {phoneError && (
+                      <p className="text-xs text-destructive font-medium animate-fade-in">
+                        ⚠️ Informe seu WhatsApp para solicitar a entrega.
+                      </p>
+                    )}
+                    {!clientPhone.trim() && !phoneError && (
                       <p className="text-xs text-muted-foreground">
                         Informe seu WhatsApp para enviar a solicitação.
                       </p>
