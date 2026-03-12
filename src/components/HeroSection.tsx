@@ -101,14 +101,20 @@ export default function HeroSection({ onSimulateClick }: HeroSectionProps) {
               size="lg"
               className="gap-2 font-semibold text-base px-8 py-5 text-white"
               style={{ backgroundColor: "hsl(142, 70%, 45%)" }}
+              asChild
               onClick={() => {
                 pushGA4Event("click_whatsapp", { source: "hero" });
                 trackEvent("click_whatsapp", { source: "hero" });
-                window.open(`https://wa.me/${whatsappNumber}`, "_blank", "noopener,noreferrer");
               }}
             >
-              <MessageCircle className="h-5 w-5" />
-              Falar no WhatsApp
+              <a
+                href={`https://api.whatsapp.com/send?phone=${whatsappNumber}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <MessageCircle className="h-5 w-5" />
+                Falar no WhatsApp
+              </a>
             </Button>
           </motion.div>
         </motion.div>
